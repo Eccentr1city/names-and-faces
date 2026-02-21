@@ -18,6 +18,20 @@ fi
 mkdir -p "$HOME/Library/LaunchAgents"
 mkdir -p "$LOG_DIR"
 
+LINKEDIN_PLIST_ENTRY=""
+if [ -n "${LINKEDIN_LI_AT:-}" ]; then
+    LINKEDIN_PLIST_ENTRY="
+        <key>LINKEDIN_LI_AT</key>
+        <string>${LINKEDIN_LI_AT}</string>"
+fi
+
+OPENAI_PLIST_ENTRY=""
+if [ -n "${OPENAI_API_KEY:-}" ]; then
+    OPENAI_PLIST_ENTRY="
+        <key>OPENAI_API_KEY</key>
+        <string>${OPENAI_API_KEY}</string>"
+fi
+
 # Unload existing agent if present
 launchctl bootout "gui/$(id -u)/${LABEL}" 2>/dev/null || true
 
@@ -42,7 +56,7 @@ cat > "$PLIST_PATH" <<PLIST
         <key>NAMES_AND_FACES_DATA_DIR</key>
         <string>${DATA_DIR}</string>
         <key>PATH</key>
-        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>${LINKEDIN_PLIST_ENTRY}${OPENAI_PLIST_ENTRY}
     </dict>
     <key>RunAtLoad</key>
     <true/>

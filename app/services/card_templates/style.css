@@ -58,24 +58,13 @@
 }
 
 .nf-context {
-  margin-top: 12px;
-}
-
-.nf-context1 {
   font-size: 16px;
   color: var(--text-secondary);
-  margin-bottom: 4px;
-}
-
-.nf-context2 {
-  font-size: 14px;
-  color: var(--text-secondary);
-  font-style: italic;
+  margin-top: 12px;
 }
 
 /* --- Card type visibility --- */
 
-/* By default, hide everything. Each card type reveals the "question" portion. */
 .nf-face,
 .nf-name,
 .nf-context {
@@ -86,7 +75,7 @@
   padding: 0;
 }
 
-/* Card 1: Face -> Name  --  show face as question */
+/* Card 1: Face -> Name */
 .card1 .nf-face {
   visibility: visible;
   height: auto;
@@ -96,7 +85,7 @@
   content: "Who is this?";
 }
 
-/* Card 2: Name -> Face  --  show name as question */
+/* Card 2: Name -> Face */
 .card2 .nf-name {
   visibility: visible;
   height: auto;
@@ -106,7 +95,7 @@
   content: "What do they look like?";
 }
 
-/* Card 3: Name + Face -> Context  --  show name and face, recall context */
+/* Card 3: Name + Face -> Context */
 .card3 .nf-face {
   visibility: visible;
   height: auto;
@@ -121,7 +110,7 @@
   content: "What do you know about them?";
 }
 
-/* Card 4: Context -> Name + Face  --  show context as question */
+/* Card 4: Context -> Name + Face */
 .card4 .nf-context {
   visibility: visible;
   height: auto;

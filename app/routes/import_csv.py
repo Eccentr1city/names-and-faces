@@ -74,9 +74,7 @@ def import_csv_view():
                     "name": name,
                     "photo_url": _get_field(row, "photo_url")
                     or _get_field(row, "photo"),
-                    "context1": _get_field(row, "context1")
-                    or _get_field(row, "context"),
-                    "context2": _get_field(row, "context2"),
+                    "context": _get_field(row, "context"),
                 }
             )
 
@@ -95,8 +93,7 @@ def import_csv_view():
 def import_csv_confirm():
     names = request.form.getlist("name")
     photo_urls = request.form.getlist("photo_url")
-    context1s = request.form.getlist("context1")
-    context2s = request.form.getlist("context2")
+    contexts = request.form.getlist("context")
     selected = request.form.getlist("selected")
 
     imported = 0
@@ -114,8 +111,7 @@ def import_csv_confirm():
         person = Person(
             name=name,
             face_filename=face_filename,
-            context1=context1s[i].strip() if i < len(context1s) else "",
-            context2=context2s[i].strip() if i < len(context2s) else "",
+            context=contexts[i].strip() if i < len(contexts) else "",
             source="csv",
         )
         db.session.add(person)

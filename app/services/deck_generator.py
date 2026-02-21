@@ -27,7 +27,7 @@ def _build_model() -> genanki.Model:
     card_html = _load_template("card.html")
     card_css = _load_template("style.css")
 
-    back_html = "{{FrontSide}}"
+    back_html = '<div class="back">{{FrontSide}}</div>'
 
     return genanki.Model(
         MODEL_ID,
@@ -35,8 +35,7 @@ def _build_model() -> genanki.Model:
         fields=[
             {"name": "Name"},
             {"name": "Face"},
-            {"name": "Context1"},
-            {"name": "Context2"},
+            {"name": "Context"},
             {"name": "FaceToName"},
             {"name": "NameToFace"},
             {"name": "NameFaceToContext"},
@@ -100,8 +99,7 @@ def generate_deck(people: list, output_path: str) -> None:
     for person in people:
         face_html = _make_face_html(person.face_filename)
         name_val = html.escape(person.name) if person.name else ""
-        ctx1_val = html.escape(person.context1) if person.context1 else ""
-        ctx2_val = html.escape(person.context2) if person.context2 else ""
+        ctx_val = html.escape(person.context) if person.context else ""
 
         has_face = bool(person.face_filename)
         has_context = person.has_context()
@@ -120,8 +118,7 @@ def generate_deck(people: list, output_path: str) -> None:
         fields = [
             name_val,
             face_html,
-            ctx1_val,
-            ctx2_val,
+            ctx_val,
             toggle_face_to_name,
             toggle_name_to_face,
             toggle_nf_to_ctx,

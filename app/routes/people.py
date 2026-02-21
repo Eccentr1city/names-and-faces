@@ -64,8 +64,7 @@ def add_person():
 
         person = Person(
             name=name,
-            context1=request.form.get("context1", "").strip(),
-            context2=request.form.get("context2", "").strip(),
+            context=request.form.get("context", "").strip(),
             **_read_card_toggles(),
             source=request.form.get("source", "manual"),
             source_url=request.form.get("source_url", "").strip(),
@@ -96,8 +95,7 @@ def edit_person(person_id: str):
             return render_template("person_form.html", person=person, mode="edit")
 
         person.name = name
-        person.context1 = request.form.get("context1", "").strip()
-        person.context2 = request.form.get("context2", "").strip()
+        person.context = request.form.get("context", "").strip()
         person.source_url = request.form.get("source_url", "").strip()
 
         for key, val in _read_card_toggles().items():

@@ -11,7 +11,7 @@
     <h1 class="text-2xl font-bold">{{ 'Edit' if mode == 'edit' else 'Add' }} Person</h1>
   </div>
 
-  <div x-data="personForm()" class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
+  <div x-data="personForm()" data-initial-url="{{ person.source_url or '' }}" class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
     <!-- Scraper section -->
     <div class="mb-8 pb-6 border-b border-gray-200 dark:border-gray-700">
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Auto-fill from URL</label>
@@ -28,7 +28,14 @@
         </button>
       </div>
       <p x-show="scrapeError" x-text="scrapeError" class="mt-2 text-sm text-red-600 dark:text-red-400"></p>
-      <p x-show="scrapeSuccess" class="mt-2 text-sm text-green-600 dark:text-green-400">Profile data loaded. Review and edit below.</p>
+      <div x-show="scrapeSuccess" class="mt-2">
+        <p class="text-sm text-green-600 dark:text-green-400">
+          Profile data loaded<span x-show="llmUsed"> (context summarized by AI)</span>. Review and edit below.
+        </p>
+        <template x-for="w in scrapeWarnings">
+          <p class="text-sm text-amber-600 dark:text-amber-400 mt-1" x-text="'⚠ ' + w"></p>
+        </template>
+      </div>
     </div>
 
     <form method="POST" enctype="multipart/form-data"
@@ -38,8 +45,9 @@
       <div class="mb-6">
         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Photo</label>
         <div class="flex items-center gap-6">
-          <div class="w-32 h-32 rounded-full bg-gray-100 dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 overflow-hidden flex items-center justify-center flex-shrink-0"
-            id="photoPreviewContainer">
+          <div class="w-32 h-32 rounded-full bg-gray-100 dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 overflow-hidden flex items-center justify-center flex-shrink-0 cursor-pointer hover:border-brand-400 transition-colors"
+            id="photoPreviewContainer" onclick="document.getElementById('photoInput').click()" tabindex="0"
+            title="Click to upload or paste an image from clipboard">
             {% if person and person.face_filename %}
               <img src="/media/{{ person.face_filename }}" class="w-full h-full object-cover" id="photoPreview">
             {% else %}
@@ -51,7 +59,7 @@
             <input type="file" name="photo" accept="image/*" id="photoInput"
               class="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-brand-50 dark:file:bg-brand-900/30 file:text-brand-700 dark:file:text-brand-300 hover:file:bg-brand-100 dark:hover:file:bg-brand-900/50"
               onchange="previewPhoto(this)">
-            <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">JPG, PNG, GIF, or WebP. Max 16MB.</p>
+            <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">Upload, drag-and-drop, or <kbd class="px-1 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-[10px]">Ctrl/Cmd+V</kbd> to paste from clipboard.</p>
           </div>
         </div>
       </div>
@@ -65,22 +73,13 @@
           placeholder="Full name">
       </div>
 
-      <!-- Context 1 -->
+      <!-- Context -->
       <div class="mb-4">
-        <label for="context1" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Context 1</label>
-        <input type="text" name="context1" id="context1"
-          value="{{ person.context1 if person else '' }}"
+        <label for="context" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Context</label>
+        <input type="text" name="context" id="context"
+          value="{{ person.context if person else '' }}"
           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
-          placeholder="e.g., Software Engineer at Google">
-      </div>
-
-      <!-- Context 2 -->
-      <div class="mb-4">
-        <label for="context2" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Context 2</label>
-        <input type="text" name="context2" id="context2"
-          value="{{ person.context2 if person else '' }}"
-          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
-          placeholder="e.g., Met at React conference 2024">
+          placeholder="e.g., ML researcher at Anthropic, met at NeurIPS 2024">
       </div>
 
       <!-- Card direction toggles -->
@@ -160,6 +159,36 @@ function previewPhoto(input) {
   }
 }
 
+function showPastedPhoto(file) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const preview = document.getElementById('photoPreview');
+    const placeholder = document.getElementById('photoPlaceholder');
+    preview.src = e.target.result;
+    preview.classList.remove('hidden');
+    if (placeholder) placeholder.classList.add('hidden');
+  };
+  reader.readAsDataURL(file);
+
+  // Set the file input so it's submitted with the form
+  const dt = new DataTransfer();
+  dt.items.add(file);
+  document.getElementById('photoInput').files = dt.files;
+}
+
+document.addEventListener('paste', function(e) {
+  const items = e.clipboardData && e.clipboardData.items;
+  if (!items) return;
+  for (let i = 0; i < items.length; i++) {
+    if (items[i].type.startsWith('image/')) {
+      e.preventDefault();
+      const file = items[i].getAsFile();
+      if (file) showPastedPhoto(file);
+      return;
+    }
+  }
+});
+
 function deletePerson() {
   if (confirm('Delete this person? This cannot be undone.')) {
     document.getElementById('deleteForm').submit();
@@ -168,16 +197,20 @@ function deletePerson() {
 
 function personForm() {
   return {
-    scrapeUrl: '{{ person.source_url if person and person.source_url else '' }}',
+    scrapeUrl: document.querySelector('[data-initial-url]')?.dataset.initialUrl || '',
     scraping: false,
     scrapeError: '',
     scrapeSuccess: false,
+    scrapeWarnings: [],
+    llmUsed: false,
 
     async scrapeProfile() {
       if (!this.scrapeUrl.trim()) return;
       this.scraping = true;
       this.scrapeError = '';
       this.scrapeSuccess = false;
+      this.scrapeWarnings = [];
+      this.llmUsed = false;
 
       try {
         const resp = await fetch('/scrape/url', {
@@ -193,8 +226,7 @@ function personForm() {
         }
 
         if (data.name) document.getElementById('name').value = data.name;
-        if (data.context1) document.getElementById('context1').value = data.context1;
-        if (data.context2) document.getElementById('context2').value = data.context2;
+        if (data.context1) document.getElementById('context').value = data.context1;
         if (data.source) document.getElementById('source').value = data.source;
         if (data.source_url) document.getElementById('source_url').value = data.source_url;
 
@@ -207,6 +239,8 @@ function personForm() {
           document.getElementById('scraped_face_filename').value = data.face_filename;
         }
 
+        this.scrapeWarnings = data.warnings || [];
+        this.llmUsed = data.llm_used || false;
         this.scrapeSuccess = true;
       } catch (e) {
         this.scrapeError = 'Network error: ' + e.message;

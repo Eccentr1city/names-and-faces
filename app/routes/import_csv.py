@@ -1,39 +1,36 @@
 import csv
 import io
 import os
-import uuid
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 import requests
 
-from app import db, MEDIA_DIR
+from app import db
 from app.models import Person
 
 import_csv_bp = Blueprint("import_csv", __name__)
 
 
 def _download_photo_from_url(photo_url):
-    """Download a photo from a URL and return the local filename."""
+    """Download a photo from a URL, optimize, and return the local filename."""
     if not photo_url or not photo_url.strip():
         return None
     try:
+        import tempfile
+
+        from app.services.images import save_and_optimize
+
         resp = requests.get(photo_url.strip(), timeout=10, stream=True)
         resp.raise_for_status()
-        content_type = resp.headers.get("content-type", "")
-        if "png" in content_type:
-            ext = "png"
-        elif "webp" in content_type:
-            ext = "webp"
-        elif "gif" in content_type:
-            ext = "gif"
-        else:
-            ext = "jpg"
-        filename = f"{uuid.uuid4()}.{ext}"
-        filepath = os.path.join(MEDIA_DIR, filename)
-        with open(filepath, "wb") as f:
-            for chunk in resp.iter_content(8192):
-                f.write(chunk)
-        return filename
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".img")
+        for chunk in resp.iter_content(8192):
+            tmp.write(chunk)
+        tmp.close()
+        try:
+            return save_and_optimize(tmp.name)
+        finally:
+            if os.path.exists(tmp.name):
+                os.remove(tmp.name)
     except Exception:
         return None
 
@@ -108,12 +105,11 @@ def import_csv_confirm():
             photo_urls[i] if i < len(photo_urls) else ""
         )
 
-        person = Person(
-            name=name,
-            face_filename=face_filename,
-            context=contexts[i].strip() if i < len(contexts) else "",
-            source="csv",
-        )
+        person = Person()
+        person.name = name
+        person.face_filename = face_filename
+        person.context = contexts[i].strip() if i < len(contexts) else ""
+        person.source = "csv"
         db.session.add(person)
         imported += 1
 

@@ -1,5 +1,4 @@
 import os
-import uuid
 
 from flask import (
     Blueprint,
@@ -25,10 +24,9 @@ def _allowed_file(filename: str) -> bool:
 
 
 def _save_photo(file) -> str:  # type: ignore[type-arg]
-    ext = file.filename.rsplit(".", 1)[1].lower()
-    filename = f"{uuid.uuid4()}.{ext}"
-    file.save(os.path.join(MEDIA_DIR, filename))
-    return filename
+    from app.services.images import save_and_optimize
+
+    return save_and_optimize(file)
 
 
 def _read_card_toggles() -> dict:
@@ -91,13 +89,13 @@ def add_person():
             flash("Name is required.", "error")
             return render_template("person_form.html", person=None, mode="add")
 
-        person = Person(
-            name=name,
-            context=request.form.get("context", "").strip(),
-            **_read_card_toggles(),
-            source=request.form.get("source", "manual"),
-            source_url=request.form.get("source_url", "").strip(),
-        )
+        person = Person()
+        person.name = name
+        person.context = request.form.get("context", "").strip()
+        person.source = request.form.get("source", "manual")
+        person.source_url = request.form.get("source_url", "").strip()
+        for key, val in _read_card_toggles().items():
+            setattr(person, key, val)
 
         photo = request.files.get("photo")
         if photo and photo.filename and _allowed_file(photo.filename):

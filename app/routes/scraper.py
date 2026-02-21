@@ -1,13 +1,11 @@
 import os
 import re
-import uuid
 from typing import Any
 
 import requests
 from bs4 import BeautifulSoup, Tag
 from flask import Blueprint, jsonify, request
 
-from app import MEDIA_DIR
 from app.services.llm import extract_profile_from_html, summarize_context
 
 scraper_bp = Blueprint("scraper", __name__)
@@ -156,17 +154,27 @@ def _download_image(
         else:
             ext = "jpg"
 
-        filename = f"{uuid.uuid4()}.{ext}"
-        filepath = os.path.join(MEDIA_DIR, filename)
+        # Save raw download to a temp file, then optimize
+        import tempfile
+
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}")
         total_bytes = 0
-        with open(filepath, "wb") as f:
-            for chunk in resp.iter_content(8192):
-                f.write(chunk)
-                total_bytes += len(chunk)
+        for chunk in resp.iter_content(8192):
+            tmp.write(chunk)
+            total_bytes += len(chunk)
+        tmp.close()
 
         if total_bytes < 1000:
-            os.remove(filepath)
+            os.remove(tmp.name)
             return None, "Downloaded image is too small (likely a placeholder)"
+
+        from app.services.images import save_and_optimize
+
+        try:
+            filename = save_and_optimize(tmp.name)
+        finally:
+            if os.path.exists(tmp.name):
+                os.remove(tmp.name)
 
         return filename, None
     except requests.RequestException as e:

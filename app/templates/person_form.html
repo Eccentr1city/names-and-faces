@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Edit' if mode == 'edit' else 'Add' }} Person - Names &amp; Faces{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <div class="flex items-center gap-3 mb-6">
+    <a href="/" class="text-gray-400 hover:text-gray-300 transition-colors">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+    </a>
+    <h1 class="text-2xl font-bold">{{ 'Edit' if mode == 'edit' else 'Add' }} Person</h1>
+  </div>
+
+  <div x-data="personForm()" class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
+    <!-- Scraper section -->
+    <div class="mb-8 pb-6 border-b border-gray-200 dark:border-gray-700">
+      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Auto-fill from URL</label>
+      <div class="flex gap-2">
+        <input type="url" x-model="scrapeUrl" placeholder="Paste a LinkedIn, Twitter, or other profile URL..."
+          class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none">
+        <button @click="scrapeProfile()" :disabled="scraping"
+          class="px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap">
+          <span x-show="!scraping">Fetch</span>
+          <span x-show="scraping" class="flex items-center gap-1">
+            <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+            Fetching...
+          </span>
+        </button>
+      </div>
+      <p x-show="scrapeError" x-text="scrapeError" class="mt-2 text-sm text-red-600 dark:text-red-400"></p>
+      <p x-show="scrapeSuccess" class="mt-2 text-sm text-green-600 dark:text-green-400">Profile data loaded. Review and edit below.</p>
+    </div>
+
+    <form method="POST" enctype="multipart/form-data"
+      action="{{ url_for('people.edit_person', person_id=person.id) if mode == 'edit' else url_for('people.add_person') }}">
+
+      <!-- Photo -->
+      <div class="mb-6">
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Photo</label>
+        <div class="flex items-center gap-6">
+          <div class="w-32 h-32 rounded-full bg-gray-100 dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 overflow-hidden flex items-center justify-center flex-shrink-0"
+            id="photoPreviewContainer">
+            {% if person and person.face_filename %}
+              <img src="/media/{{ person.face_filename }}" class="w-full h-full object-cover" id="photoPreview">
+            {% else %}
+              <img src="" class="w-full h-full object-cover hidden" id="photoPreview">
+              <svg class="w-10 h-10 text-gray-300 dark:text-gray-600" id="photoPlaceholder" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+            {% endif %}
+          </div>
+          <div class="flex-1">
+            <input type="file" name="photo" accept="image/*" id="photoInput"
+              class="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-brand-50 dark:file:bg-brand-900/30 file:text-brand-700 dark:file:text-brand-300 hover:file:bg-brand-100 dark:hover:file:bg-brand-900/50"
+              onchange="previewPhoto(this)">
+            <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">JPG, PNG, GIF, or WebP. Max 16MB.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Name -->
+      <div class="mb-4">
+        <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name <span class="text-red-500">*</span></label>
+        <input type="text" name="name" id="name" required
+          value="{{ person.name if person else '' }}"
+          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
+          placeholder="Full name">
+      </div>
+
+      <!-- Context 1 -->
+      <div class="mb-4">
+        <label for="context1" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Context 1</label>
+        <input type="text" name="context1" id="context1"
+          value="{{ person.context1 if person else '' }}"
+          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
+          placeholder="e.g., Software Engineer at Google">
+      </div>
+
+      <!-- Context 2 -->
+      <div class="mb-4">
+        <label for="context2" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Context 2</label>
+        <input type="text" name="context2" id="context2"
+          value="{{ person.context2 if person else '' }}"
+          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
+          placeholder="e.g., Met at React conference 2024">
+      </div>
+
+      <!-- Card direction toggles -->
+      <div class="mb-6 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+        <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Card Directions</p>
+        <div class="space-y-2.5">
+          <label class="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="card_face_to_name" value="on"
+              {{ 'checked' if (person is none or person.card_face_to_name) }}
+              class="rounded border-gray-300 dark:border-gray-600 text-brand-600 focus:ring-brand-500 bg-white dark:bg-gray-700">
+            <span class="text-gray-700 dark:text-gray-200">Face &#8594; Name</span>
+            <span class="text-gray-400 dark:text-gray-500 text-xs">(see face, recall name)</span>
+          </label>
+          <label class="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="card_name_to_face" value="on"
+              {{ 'checked' if (person is none or person.card_name_to_face) }}
+              class="rounded border-gray-300 dark:border-gray-600 text-brand-600 focus:ring-brand-500 bg-white dark:bg-gray-700">
+            <span class="text-gray-700 dark:text-gray-200">Name &#8594; Face</span>
+            <span class="text-gray-400 dark:text-gray-500 text-xs">(see name, recall face)</span>
+          </label>
+          <label class="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="card_name_face_to_context" value="on"
+              {{ 'checked' if (person is none or person.card_name_face_to_context) }}
+              class="rounded border-gray-300 dark:border-gray-600 text-brand-600 focus:ring-brand-500 bg-white dark:bg-gray-700">
+            <span class="text-gray-700 dark:text-gray-200">Name + Face &#8594; Context</span>
+            <span class="text-gray-400 dark:text-gray-500 text-xs">(see person, recall what you know)</span>
+          </label>
+          <label class="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="card_context_to_person" value="on"
+              {{ 'checked' if (person is none or person.card_context_to_person) }}
+              class="rounded border-gray-300 dark:border-gray-600 text-brand-600 focus:ring-brand-500 bg-white dark:bg-gray-700">
+            <span class="text-gray-700 dark:text-gray-200">Context &#8594; Name + Face</span>
+            <span class="text-gray-400 dark:text-gray-500 text-xs">(see context, recall person)</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Hidden fields populated by scraper -->
+      <input type="hidden" name="source" id="source" value="{{ person.source if person else 'manual' }}">
+      <input type="hidden" name="source_url" id="source_url" value="{{ person.source_url if person else '' }}">
+      <input type="hidden" name="scraped_face_filename" id="scraped_face_filename" value="">
+
+      <!-- Actions -->
+      <div class="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+        <div>
+          {% if mode == 'edit' %}
+            <button type="button" onclick="deletePerson()" class="text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-medium">Delete</button>
+          {% endif %}
+        </div>
+        <div class="flex gap-3">
+          <a href="/" class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">Cancel</a>
+          <button type="submit" class="px-6 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 transition-colors">
+            {{ 'Save Changes' if mode == 'edit' else 'Add Person' }}
+          </button>
+        </div>
+      </div>
+    </form>
+
+    {% if mode == 'edit' %}
+    <form id="deleteForm" method="POST" action="/delete/{{ person.id }}" class="hidden"></form>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+function previewPhoto(input) {
+  if (input.files && input.files[0]) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const preview = document.getElementById('photoPreview');
+      const placeholder = document.getElementById('photoPlaceholder');
+      preview.src = e.target.result;
+      preview.classList.remove('hidden');
+      if (placeholder) placeholder.classList.add('hidden');
+    };
+    reader.readAsDataURL(input.files[0]);
+  }
+}
+
+function deletePerson() {
+  if (confirm('Delete this person? This cannot be undone.')) {
+    document.getElementById('deleteForm').submit();
+  }
+}
+
+function personForm() {
+  return {
+    scrapeUrl: '{{ person.source_url if person and person.source_url else '' }}',
+    scraping: false,
+    scrapeError: '',
+    scrapeSuccess: false,
+
+    async scrapeProfile() {
+      if (!this.scrapeUrl.trim()) return;
+      this.scraping = true;
+      this.scrapeError = '';
+      this.scrapeSuccess = false;
+
+      try {
+        const resp = await fetch('/scrape/url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: this.scrapeUrl })
+        });
+        const data = await resp.json();
+
+        if (!resp.ok) {
+          this.scrapeError = data.error || 'Failed to scrape URL';
+          return;
+        }
+
+        if (data.name) document.getElementById('name').value = data.name;
+        if (data.context1) document.getElementById('context1').value = data.context1;
+        if (data.context2) document.getElementById('context2').value = data.context2;
+        if (data.source) document.getElementById('source').value = data.source;
+        if (data.source_url) document.getElementById('source_url').value = data.source_url;
+
+        if (data.face_filename) {
+          const preview = document.getElementById('photoPreview');
+          const placeholder = document.getElementById('photoPlaceholder');
+          preview.src = '/media/' + data.face_filename;
+          preview.classList.remove('hidden');
+          if (placeholder) placeholder.classList.add('hidden');
+          document.getElementById('scraped_face_filename').value = data.face_filename;
+        }
+
+        this.scrapeSuccess = true;
+      } catch (e) {
+        this.scrapeError = 'Network error: ' + e.message;
+      } finally {
+        this.scraping = false;
+      }
+    }
+  };
+}
+</script>
+{% endblock %}

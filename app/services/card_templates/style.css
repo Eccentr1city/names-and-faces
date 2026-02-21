@@ -1,0 +1,147 @@
+:root {
+  --bg: #ffffff;
+  --bg-card: #f8f9fa;
+  --text: #1a1a2e;
+  --text-secondary: #4a4a6a;
+  --accent: #6366f1;
+  --border: #e2e8f0;
+  --shadow: rgba(0, 0, 0, 0.08);
+}
+
+.night_mode {
+  --bg: #1a1a2e;
+  --bg-card: #252542;
+  --text: #e2e8f0;
+  --text-secondary: #a0aec0;
+  --accent: #818cf8;
+  --border: #374151;
+  --shadow: rgba(0, 0, 0, 0.3);
+}
+
+.nf-card {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 24px;
+  background: var(--bg);
+  color: var(--text);
+  text-align: center;
+}
+
+.nf-question-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--accent);
+  margin-bottom: 20px;
+  font-weight: 600;
+}
+
+.nf-face {
+  margin: 16px auto;
+}
+
+.nf-face img {
+  width: 200px;
+  height: 200px;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 3px solid var(--border);
+  box-shadow: 0 4px 12px var(--shadow);
+}
+
+.nf-name {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 16px 0 8px;
+  color: var(--text);
+}
+
+.nf-context {
+  margin-top: 12px;
+}
+
+.nf-context1 {
+  font-size: 16px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.nf-context2 {
+  font-size: 14px;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+/* --- Card type visibility --- */
+
+/* By default, hide everything. Each card type reveals the "question" portion. */
+.nf-face,
+.nf-name,
+.nf-context {
+  visibility: hidden;
+  height: 0;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+}
+
+/* Card 1: Face -> Name  --  show face as question */
+.card1 .nf-face {
+  visibility: visible;
+  height: auto;
+  margin: 16px auto;
+}
+.card1 .question-label::after {
+  content: "Who is this?";
+}
+
+/* Card 2: Name -> Face  --  show name as question */
+.card2 .nf-name {
+  visibility: visible;
+  height: auto;
+  margin: 16px 0 8px;
+}
+.card2 .question-label::after {
+  content: "What do they look like?";
+}
+
+/* Card 3: Name + Face -> Context  --  show name and face, recall context */
+.card3 .nf-face {
+  visibility: visible;
+  height: auto;
+  margin: 16px auto;
+}
+.card3 .nf-name {
+  visibility: visible;
+  height: auto;
+  margin: 16px 0 8px;
+}
+.card3 .question-label::after {
+  content: "What do you know about them?";
+}
+
+/* Card 4: Context -> Name + Face  --  show context as question */
+.card4 .nf-context {
+  visibility: visible;
+  height: auto;
+  margin-top: 12px;
+}
+.card4 .question-label::after {
+  content: "Who is this?";
+}
+
+/* Back side: show everything */
+.back .nf-face,
+.back .nf-name,
+.back .nf-context {
+  visibility: visible;
+  height: auto;
+}
+.back .nf-face { margin: 16px auto; }
+.back .nf-name { margin: 16px 0 8px; }
+.back .nf-context { margin-top: 12px; }
+
+.back .question-label {
+  display: none;
+}

@@ -1,0 +1,13 @@
+[project]
+name = "names-and-faces"
+version = "0.1.0"
+description = "Generate multi-directional Anki flashcards for learning people's names and faces"
+requires-python = ">=3.13"
+dependencies = [
+    "beautifulsoup4>=4.14.3",
+    "flask>=3.1.3",
+    "flask-sqlalchemy>=3.1.1",
+    "genanki>=0.13.1",
+    "pillow>=12.1.1",
+    "requests>=2.32.5",
+]

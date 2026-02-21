@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}Names &amp; Faces{% endblock %}
+
+{% block content %}
+<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+  <div>
+    <h1 class="text-2xl font-bold">People</h1>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{{ people|length }} {{ 'person' if people|length == 1 else 'people' }} in your collection</p>
+  </div>
+  <div class="flex items-center gap-3 w-full sm:w-auto">
+    <form method="GET" action="/" class="flex-1 sm:flex-initial">
+      <div class="relative">
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        <input type="text" name="q" value="{{ search }}" placeholder="Search by name..."
+          class="w-full sm:w-64 pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none">
+      </div>
+    </form>
+    {% if people %}
+    <form method="POST" action="/deck/export" id="exportForm">
+      <button type="submit"
+        class="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors whitespace-nowrap">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        Export Deck
+      </button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+{% if people %}
+<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+  {% for person in people %}
+  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden hover:shadow-md dark:hover:shadow-gray-900/50 transition-shadow group">
+    <a href="/edit/{{ person.id }}" class="block">
+      <div class="aspect-square bg-gray-100 dark:bg-gray-800 relative overflow-hidden">
+        {% if person.face_filename %}
+          <img src="/media/{{ person.face_filename }}" alt="{{ person.name }}"
+            class="w-full h-full object-cover">
+        {% else %}
+          <div class="w-full h-full flex items-center justify-center text-gray-300 dark:text-gray-600">
+            <svg class="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+          </div>
+        {% endif %}
+      </div>
+      <div class="p-3">
+        <p class="font-semibold text-sm truncate">{{ person.name }}</p>
+        {% if person.context1 %}
+          <p class="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">{{ person.context1 }}</p>
+        {% endif %}
+      </div>
+    </a>
+    <div class="px-3 pb-3 flex flex-wrap gap-1">
+      {% if person.card_face_to_name and person.face_filename %}
+        <span class="inline-block px-1.5 py-0.5 bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 text-[10px] font-medium rounded">F&#8594;N</span>
+      {% endif %}
+      {% if person.card_name_to_face %}
+        <span class="inline-block px-1.5 py-0.5 bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-[10px] font-medium rounded">N&#8594;F</span>
+      {% endif %}
+      {% if person.card_name_face_to_context and person.face_filename and person.has_context() %}
+        <span class="inline-block px-1.5 py-0.5 bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300 text-[10px] font-medium rounded">NF&#8594;C</span>
+      {% endif %}
+      {% if person.card_context_to_person and person.has_context() %}
+        <span class="inline-block px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-[10px] font-medium rounded">C&#8594;P</span>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="text-center py-16">
+  <svg class="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+  <h2 class="text-lg font-semibold mb-1">No people yet</h2>
+  <p class="text-gray-500 dark:text-gray-400 text-sm mb-6">Get started by adding someone to your collection.</p>
+  <div class="flex justify-center gap-3">
+    <a href="/add" class="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+      Add Person
+    </a>
+    <a href="/import/csv" class="inline-flex items-center gap-1.5 px-4 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+      Import CSV
+    </a>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

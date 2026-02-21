@@ -2,8 +2,16 @@
 set -euo pipefail
 
 LABEL="com.namesandfaces.server"
-PLIST_PATH="$HOME/Library/LaunchAgents/${LABEL}.plist"
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+
+# Load .env if it exists (doesn't override existing env vars)
+if [ -f "$REPO_DIR/.env" ]; then
+    set -a
+    source <(grep -v '^\s*#' "$REPO_DIR/.env" | grep -v '^\s*$')
+    set +a
+fi
+
+PLIST_PATH="$HOME/Library/LaunchAgents/${LABEL}.plist"
 UV_PATH="$(command -v uv 2>/dev/null || echo "/opt/homebrew/bin/uv")"
 PORT="${NAMES_AND_FACES_PORT:-5050}"
 DATA_DIR="${NAMES_AND_FACES_DATA_DIR:-$HOME/.names-and-faces}"
@@ -25,11 +33,11 @@ if [ -n "${LINKEDIN_LI_AT:-}" ]; then
         <string>${LINKEDIN_LI_AT}</string>"
 fi
 
-OPENAI_PLIST_ENTRY=""
-if [ -n "${OPENAI_API_KEY:-}" ]; then
-    OPENAI_PLIST_ENTRY="
-        <key>OPENAI_API_KEY</key>
-        <string>${OPENAI_API_KEY}</string>"
+ANTHROPIC_PLIST_ENTRY=""
+if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+    ANTHROPIC_PLIST_ENTRY="
+        <key>ANTHROPIC_API_KEY</key>
+        <string>${ANTHROPIC_API_KEY}</string>"
 fi
 
 # Unload existing agent if present
@@ -56,7 +64,7 @@ cat > "$PLIST_PATH" <<PLIST
         <key>NAMES_AND_FACES_DATA_DIR</key>
         <string>${DATA_DIR}</string>
         <key>PATH</key>
-        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>${LINKEDIN_PLIST_ENTRY}${OPENAI_PLIST_ENTRY}
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>${LINKEDIN_PLIST_ENTRY}${ANTHROPIC_PLIST_ENTRY}
     </dict>
     <key>RunAtLoad</key>
     <true/>

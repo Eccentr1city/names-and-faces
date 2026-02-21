@@ -59,41 +59,45 @@ Set this before running `install-launchd.sh` and it will be baked into the launc
 
 ## Configuration
 
-### LinkedIn Authentication (recommended)
-
-Without authentication, LinkedIn blocks many profile pages. Adding your session cookie unlocks full access to profiles and real profile photos.
-
-**Automatic (Chrome):**
+Copy the example env file and fill in your values:
 
 ```bash
-uv add cryptography  # one-time dependency for cookie decryption
-eval $(bash scripts/get-linkedin-cookie.sh)
-bash scripts/install-launchd.sh  # re-install to bake it into the service
+cp .env.example .env
 ```
 
-**Manual (any browser):**
-
-1. Open [linkedin.com](https://www.linkedin.com) in your browser (make sure you're logged in)
-2. Open DevTools: `Cmd+Option+I` (Mac) or `F12` (Windows/Linux)
-3. Go to **Application** → **Cookies** → `https://www.linkedin.com`
-4. Find the cookie named `li_at` and copy its value
-5. Set it:
+Then edit `.env`:
 
 ```bash
-export LINKEDIN_LI_AT="your-cookie-value-here"
-bash scripts/install-launchd.sh  # re-install to bake it into the service
+# LinkedIn session cookie for authenticated profile scraping.
+# Get it from Chrome DevTools: Application > Cookies > linkedin.com > li_at
+LINKEDIN_LI_AT=your-cookie-value
+
+# Anthropic API key for AI-powered context summarization.
+ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-The cookie typically lasts several months. If LinkedIn scraping stops working, repeat these steps to refresh it.
-
-### LLM Context Summarization (optional)
-
-When set, scraped profile descriptions are automatically distilled into concise one-liners using GPT-4o-mini (e.g., a verbose LinkedIn bio becomes "ML researcher at DeepMind").
+After editing `.env`, restart the service:
 
 ```bash
-export OPENAI_API_KEY="sk-..."
 bash scripts/install-launchd.sh
 ```
+
+The install script reads `.env` automatically. Both the launchd service and `uv run python run.py` pick up the same file.
+
+### LinkedIn Authentication
+
+Without authentication, LinkedIn blocks many profile pages. Adding your `li_at` session cookie unlocks full access. To get it:
+
+1. Open [linkedin.com](https://www.linkedin.com) in your browser (make sure you're logged in)
+2. Open DevTools: **Cmd+Option+I**
+3. Go to **Application** → **Cookies** → `https://www.linkedin.com`
+4. Copy the value of the `li_at` cookie into `.env`
+
+The cookie lasts several months. If LinkedIn scraping stops working, refresh it.
+
+### LLM Context Summarization
+
+When `ANTHROPIC_API_KEY` is set, scraped profile descriptions are automatically distilled into concise one-liners using Claude (e.g., a verbose LinkedIn bio becomes "ML researcher at DeepMind"). Without it, the raw scraped text is used as-is.
 
 ## Input Modes
 

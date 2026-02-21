@@ -1,12 +1,12 @@
 """Optional LLM integration for processing scraped content.
 
-Set OPENAI_API_KEY in the environment to enable. If not set, LLM features
+Set ANTHROPIC_API_KEY in the environment to enable. If not set, LLM features
 are silently skipped and the raw scraped text is used as-is.
 """
 
 import os
 
-_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 
 _SYSTEM_PROMPT = """You are a concise summarizer. Given a person's bio or description
 from a social media profile, extract ONLY the most memorable and identifying information.
@@ -24,7 +24,7 @@ Examples:
 
 
 def summarize_context(description: str, name: str = "") -> str | None:
-    """Use an LLM to distill a verbose bio into a concise context line.
+    """Use Claude to distill a verbose bio into a concise context line.
 
     Returns None if LLM is not configured or the call fails, so callers
     can fall back to the raw description.
@@ -36,29 +36,28 @@ def summarize_context(description: str, name: str = "") -> str | None:
         import requests
 
         resp = requests.post(
-            "https://api.openai.com/v1/chat/completions",
+            "https://api.anthropic.com/v1/messages",
             headers={
-                "Authorization": f"Bearer {_API_KEY}",
-                "Content-Type": "application/json",
+                "x-api-key": _API_KEY,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json",
             },
             json={
-                "model": "gpt-4o-mini",
+                "model": "claude-sonnet-4-6",
+                "max_tokens": 100,
+                "system": _SYSTEM_PROMPT,
                 "messages": [
-                    {"role": "system", "content": _SYSTEM_PROMPT},
                     {
                         "role": "user",
                         "content": f"Person: {name}\nBio: {description}",
                     },
                 ],
-                "max_tokens": 100,
-                "temperature": 0.3,
             },
             timeout=10,
         )
         resp.raise_for_status()
         result = resp.json()
-        content = result["choices"][0]["message"]["content"].strip()
-        # Remove quotes if the model wrapped the output in them
+        content = result["content"][0]["text"].strip()
         if content.startswith('"') and content.endswith('"'):
             content = content[1:-1]
         return content

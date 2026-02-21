@@ -117,7 +117,9 @@ def _is_valid_profile_image(url: str) -> bool:
     return True
 
 
-def _download_image(image_url: str) -> tuple[str | None, str | None]:
+def _download_image(
+    image_url: str, cookies: dict[str, str] | None = None
+) -> tuple[str | None, str | None]:
     """Download an image and return (filename, error_message)."""
     if not image_url:
         return None, "No image URL found"
@@ -127,7 +129,12 @@ def _download_image(image_url: str) -> tuple[str | None, str | None]:
 
     try:
         resp = requests.get(
-            image_url, headers=_HEADERS, timeout=15, stream=True, allow_redirects=True
+            image_url,
+            headers=_HEADERS,
+            cookies=cookies,
+            timeout=15,
+            stream=True,
+            allow_redirects=True,
         )
         resp.raise_for_status()
 
@@ -233,6 +240,33 @@ def _extract_linkedin_profile_text(soup: BeautifulSoup, name: str) -> dict[str, 
     return result
 
 
+def _extract_linkedin_photo_url(html_text: str) -> str:
+    """Extract the best profile photo URL from authenticated LinkedIn HTML.
+
+    Authenticated pages embed photo URLs as rootUrl + suffixUrl fragments
+    in their RSC/JSON data. We reconstruct a full URL from these pieces.
+    """
+    # Find root URLs for profile display photos
+    roots = re.findall(
+        r"(https://media\.licdn\.com/dms/image/v2/[A-Za-z0-9_-]+/profile-displayphoto-)",
+        html_text,
+    )
+    if not roots:
+        return ""
+
+    # Find the largest suffix with auth token (prefer 400x400)
+    for size in ("400_400", "800_800", "200_200", "100_100"):
+        pattern = rf"shrink_{size}(/[^\"\\<>\s]+(?:\\u0026[^\"\\<>\s]+)*)"
+        suffixes = re.findall(pattern, html_text)
+        if suffixes:
+            suffix = f"shrink_{size}{suffixes[0]}"
+            full_url = roots[0] + suffix
+            full_url = full_url.encode("utf-8").decode("unicode_escape")
+            return full_url
+
+    return ""
+
+
 def _scrape_linkedin(url: str, soup: BeautifulSoup) -> dict:
     """LinkedIn-specific scraping with fallbacks.
 
@@ -264,10 +298,13 @@ def _scrape_linkedin(url: str, soup: BeautifulSoup) -> dict:
             description = " · ".join(parts)
             raw_desc = description
 
-    # Image: only use OG image if it's a real photo (not the ghost SVG)
+    # Image: try OG tag first, then extract from authenticated HTML
     image_url = og.get("image", "") or tw.get("image", "")
     if not _is_valid_profile_image(image_url):
         image_url = ""
+
+    if not image_url and is_authenticated_page:
+        image_url = _extract_linkedin_photo_url(str(soup))
 
     return {
         "name": name,
@@ -406,32 +443,47 @@ def scrape_url():
     # Download profile image
     face_filename = None
     if data["image_url"]:
-        face_filename, img_error = _download_image(data["image_url"])
+        face_filename, img_error = _download_image(data["image_url"], cookies=cookies)
         if img_error:
-            warnings.append(img_error)
+            if platform == "linkedin" and "403" in str(img_error):
+                warnings.append(
+                    "Found the profile photo but LinkedIn blocked the download. "
+                    "Copy the image from your browser (right-click > Copy Image) "
+                    "and paste it here with Cmd+V."
+                )
+            else:
+                warnings.append(img_error)
     else:
         warnings.append(
             "No profile image found. "
-            "You can right-click the photo in your browser, save it, and upload here."
+            "You can copy the photo from your browser and paste here with Cmd+V."
         )
 
-    # Use LLM to summarize description if available
-    context = data["description"][:200] if data["description"] else ""
-    llm_used = False
-    if data["description"]:
-        llm_result = summarize_context(data["description"], data["name"])
-        if llm_result:
-            context = llm_result
-            llm_used = True
+    raw_context = data["description"][:300] if data["description"] else ""
 
     return jsonify(
         {
             "name": data["name"],
             "face_filename": face_filename,
-            "context1": context,
+            "context1": raw_context,
+            "raw_description": data.get("raw_description", raw_context),
             "source": platform,
             "source_url": url,
             "warnings": warnings,
-            "llm_used": llm_used,
         }
     )
+
+
+@scraper_bp.route("/summarize", methods=["POST"])
+def summarize():
+    """Summarize a description using LLM. Called async after scrape returns."""
+    description = request.json.get("description", "").strip()  # type: ignore[union-attr]
+    name = request.json.get("name", "").strip()  # type: ignore[union-attr]
+
+    if not description:
+        return jsonify({"summary": ""}), 200
+
+    result = summarize_context(description, name)
+    if result:
+        return jsonify({"summary": result})
+    return jsonify({"summary": ""}), 200

@@ -19,7 +19,7 @@ class Person(db.Model):  # type: ignore[name-defined]
     card_face_to_name = db.Column(db.Boolean, default=True, nullable=False)
     card_name_to_face = db.Column(db.Boolean, default=True, nullable=False)
     card_name_face_to_context = db.Column(db.Boolean, default=True, nullable=False)
-    card_context_to_person = db.Column(db.Boolean, default=True, nullable=False)
+    card_context_to_person = db.Column(db.Boolean, default=False, nullable=False)
 
     source = db.Column(db.Text, default="manual")
     source_url = db.Column(db.Text, nullable=True, default="")

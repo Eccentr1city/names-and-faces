@@ -7,3 +7,4 @@ build/
 *.db
 *.apkg
 .DS_Store
+.env

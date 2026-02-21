@@ -70,7 +70,23 @@
         <input type="text" name="name" id="name" required
           value="{{ person.name if person else '' }}"
           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
-          placeholder="Full name">
+          placeholder="Full name"
+          oninput="checkDuplicate(this.value)">
+        <div id="duplicateWarning" class="hidden mt-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+          <p class="text-sm text-amber-800 dark:text-amber-300">
+            A person named "<span id="dupName" class="font-medium"></span>" already exists<span id="dupContext" class="text-amber-600 dark:text-amber-400"></span>.
+          </p>
+          <div class="flex gap-2 mt-2">
+            <a id="dupEditLink" href="#"
+              class="px-3 py-1 text-xs font-medium bg-white dark:bg-gray-800 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-300 rounded-md hover:bg-amber-50 dark:hover:bg-amber-900/30">
+              Edit existing
+            </a>
+            <button type="button" onclick="document.getElementById('duplicateWarning').classList.add('hidden')"
+              class="px-3 py-1 text-xs font-medium text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-200">
+              Add anyway
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- Context -->
@@ -153,6 +169,35 @@
 </div>
 
 <script>
+let _dupTimer = null;
+const _editingId = '{{ person.id if person else "" }}';
+
+function checkDuplicate(name) {
+  clearTimeout(_dupTimer);
+  const warning = document.getElementById('duplicateWarning');
+  warning.classList.add('hidden');
+
+  if (!name.trim() || name.trim().length < 2) return;
+
+  _dupTimer = setTimeout(async () => {
+    try {
+      const resp = await fetch('/check-duplicate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim(), exclude_id: _editingId })
+      });
+      const data = await resp.json();
+      if (data.duplicate) {
+        document.getElementById('dupName').textContent = data.existing_name;
+        const ctxEl = document.getElementById('dupContext');
+        ctxEl.textContent = data.existing_context ? ' (' + data.existing_context + ')' : '';
+        document.getElementById('dupEditLink').href = '/edit/' + data.existing_id;
+        warning.classList.remove('hidden');
+      }
+    } catch (_) {}
+  }, 400);
+}
+
 function previewPhoto(input) {
   if (input.files && input.files[0]) {
     const reader = new FileReader();
@@ -238,7 +283,10 @@ function personForm() {
           return;
         }
 
-        if (data.name) document.getElementById('name').value = data.name;
+        if (data.name) {
+          document.getElementById('name').value = data.name;
+          checkDuplicate(data.name);
+        }
         if (data.context1) document.getElementById('context').value = data.context1;
         if (data.source) document.getElementById('source').value = data.source;
         if (data.source_url) document.getElementById('source_url').value = data.source_url;

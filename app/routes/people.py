@@ -54,6 +54,35 @@ def index():
     return render_template("index.html", people=people, search=search)
 
 
+@people_bp.route("/check-duplicate", methods=["POST"])
+def check_duplicate():
+    """Check if a person with this name already exists."""
+    from flask import jsonify
+
+    data = request.get_json(silent=True) or {}
+    name = data.get("name", "").strip()
+    exclude_id = data.get("exclude_id", "")
+    if not name:
+        return jsonify({"duplicate": False})
+
+    query = Person.query.filter(db.func.lower(Person.name) == name.lower())
+    if exclude_id:
+        query = query.filter(Person.id != exclude_id)
+    existing = query.first()
+
+    if existing:
+        return jsonify(
+            {
+                "duplicate": True,
+                "existing_id": existing.id,
+                "existing_name": existing.name,
+                "existing_context": existing.context or "",
+                "existing_face": existing.face_filename or "",
+            }
+        )
+    return jsonify({"duplicate": False})
+
+
 @people_bp.route("/add", methods=["GET", "POST"])
 def add_person():
     if request.method == "POST":

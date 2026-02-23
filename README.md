@@ -9,7 +9,11 @@ Requires [uv](https://docs.astral.sh/uv/) and Python 3.13+.
 ```bash
 git clone https://github.com/adamkaufman/names-and-faces.git
 cd names-and-faces
-cp .env.example .env   # then edit with your keys (see below)
+```
+
+Optionally, configure a .env file with API keys (see below). Then run the setup script:
+
+```bash
 bash scripts/install-launchd.sh
 ```
 

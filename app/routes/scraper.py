@@ -55,9 +55,14 @@ def _detect_platform(url: str) -> str:
         return "linkedin"
     elif "twitter.com" in url_lower or "x.com" in url_lower:
         return "twitter"
-    elif "facebook.com" in url_lower:
+    elif "instagram.com" in url_lower:
+        return "instagram"
+    elif "facebook.com" in url_lower or "fb.com" in url_lower:
         return "facebook"
     return "other"
+
+
+_BOT_UA_PLATFORMS = {"twitter", "instagram", "facebook"}
 
 
 def _clean_name(raw_name: str, platform: str) -> str:
@@ -323,6 +328,75 @@ def _scrape_twitter(url: str, soup: BeautifulSoup) -> dict[str, Any]:
     }
 
 
+def _scrape_instagram(url: str, soup: BeautifulSoup) -> dict[str, Any]:
+    """Instagram scraping using OG tags (served to bot UAs)."""
+    og = _extract_og_tags(soup)
+
+    raw_name = og.get("title", "")
+    # OG title: "Erez Abrams (@eiis1000) • Instagram photos and videos"
+    name_match = re.match(r"^(.+?)\s*\(@\w+\)", raw_name)
+    name = (
+        name_match.group(1).strip()
+        if name_match
+        else _clean_name(raw_name, "instagram")
+    )
+
+    # The meta description has the real bio:
+    # '313 Followers, 358 Following, 0 Posts - Erez Abrams (@eiis1000) on Instagram: "physics, music, enthusiasm | MIT '26"'
+    description = ""
+    raw_desc = ""
+    for meta in soup.find_all("meta"):
+        attr_name = _meta_attr(meta, "name")
+        if attr_name == "description":
+            raw_desc = _meta_attr(meta, "content")
+            break
+
+    if raw_desc:
+        # Extract the quoted bio if present
+        bio_match = re.search(r'["""](.+?)["""]', raw_desc)
+        if bio_match:
+            description = bio_match.group(1)
+        else:
+            description = raw_desc
+
+    image_url = og.get("image", "")
+    # Instagram OG images are small (100x100). Try to get a larger version.
+    if image_url and "s100x100" in image_url:
+        image_url = image_url.replace("s100x100", "s320x320")
+
+    return {
+        "name": name,
+        "raw_description": raw_desc,
+        "description": description,
+        "image_url": image_url,
+    }
+
+
+def _scrape_facebook(url: str, soup: BeautifulSoup) -> dict[str, Any]:
+    """Facebook scraping using OG tags (served to bot UAs)."""
+    og = _extract_og_tags(soup)
+
+    name = og.get("title", "")
+    # Facebook OG title is usually just the name, clean
+    name = _clean_name(name, "facebook")
+
+    # Facebook's OG description is generic boilerplate, not useful
+    # But the actual page content might have better info
+    raw_desc = og.get("description", "")
+    description = ""
+    if raw_desc and "is on Facebook" not in raw_desc:
+        description = raw_desc
+
+    image_url = og.get("image", "")
+
+    return {
+        "name": name,
+        "raw_description": raw_desc,
+        "description": description,
+        "image_url": image_url,
+    }
+
+
 def _collect_page_images(soup: BeautifulSoup, base_url: str) -> list[dict[str, str]]:
     """Collect image entries from a page, resolving relative URLs."""
     from urllib.parse import urljoin
@@ -429,8 +503,8 @@ def scrape_url():
     warnings: list[str] = []
 
     req_headers = (
-        {**_HEADERS, "User-Agent": "Twitterbot/1.0"}
-        if platform == "twitter"
+        {**_HEADERS, "User-Agent": "facebookexternalhit/1.1"}
+        if platform in _BOT_UA_PLATFORMS
         else _HEADERS
     )
     cookies: dict[str, str] = {}
@@ -475,6 +549,10 @@ def scrape_url():
         result = _scrape_linkedin(url, soup)
     elif platform == "twitter":
         result = _scrape_twitter(url, soup)
+    elif platform == "instagram":
+        result = _scrape_instagram(url, soup)
+    elif platform == "facebook":
+        result = _scrape_facebook(url, soup)
     else:
         result = _scrape_generic(url, soup)
 
@@ -488,9 +566,13 @@ def scrape_url():
     if result["image_url"]:
         face_filename, img_error = _download_image(result["image_url"], cookies=cookies)
         if img_error:
-            if platform == "linkedin" and "403" in str(img_error):
+            if "403" in str(img_error) and platform in (
+                "linkedin",
+                "instagram",
+                "facebook",
+            ):
                 warnings.append(
-                    "Found the profile photo but LinkedIn blocked the download. "
+                    "Found the profile photo but the download was blocked. "
                     "Copy the image from your browser (right-click > Copy Image) "
                     "and paste it here with Cmd+V."
                 )

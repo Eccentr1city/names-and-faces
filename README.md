@@ -11,7 +11,7 @@ git clone https://github.com/adamkaufman/names-and-faces.git
 cd names-and-faces
 ```
 
-Optionally, configure a .env file with API keys (see below). Then run the setup script:
+Optionally, configure a .env file with API keys (see below). Then run the setup script (note that this was written for mac, maybe ask an LLM to update it for you if you're running something else):
 
 ```bash
 bash scripts/install-launchd.sh

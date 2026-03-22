@@ -7,7 +7,7 @@ REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 # Load .env if it exists (doesn't override existing env vars)
 if [ -f "$REPO_DIR/.env" ]; then
     set -a
-    source <(grep -v '^\s*#' "$REPO_DIR/.env" | grep -v '^\s*$')
+    eval "$(grep -v '^\s*#' "$REPO_DIR/.env" | grep -v '^\s*$')"
     set +a
 fi
 
@@ -15,6 +15,7 @@ PLIST_PATH="$HOME/Library/LaunchAgents/${LABEL}.plist"
 UV_PATH="$(command -v uv 2>/dev/null || echo "/opt/homebrew/bin/uv")"
 PORT="${NAMES_AND_FACES_PORT:-5050}"
 DATA_DIR="${NAMES_AND_FACES_DATA_DIR:-$HOME/.names-and-faces}"
+DATA_DIR="${DATA_DIR/#\~/$HOME}"
 LOG_DIR="$DATA_DIR/logs"
 
 if [ ! -f "$UV_PATH" ]; then
@@ -61,6 +62,8 @@ cat > "$PLIST_PATH" <<PLIST
     <string>${REPO_DIR}</string>
     <key>EnvironmentVariables</key>
     <dict>
+        <key>NAMES_AND_FACES_PORT</key>
+        <string>${PORT}</string>
         <key>NAMES_AND_FACES_DATA_DIR</key>
         <string>${DATA_DIR}</string>
         <key>PATH</key>
@@ -89,6 +92,15 @@ echo "  URL:      http://localhost:${PORT}"
 echo "  Data dir: ${DATA_DIR}"
 echo "  Logs:     ${LOG_DIR}"
 echo "  Plist:    ${PLIST_PATH}"
+
+if command -v tailscale &>/dev/null && tailscale status &>/dev/null; then
+    tailscale serve --bg --http "${PORT}" "http://127.0.0.1:${PORT}" 2>/dev/null || true
+    TS_HOSTNAME="$(tailscale status --json 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin)['Self']['DNSName'].rstrip('.'))" 2>/dev/null || true)"
+    if [ -n "$TS_HOSTNAME" ]; then
+        echo "  Tailscale: http://${TS_HOSTNAME}:${PORT}"
+    fi
+fi
+
 echo ""
 echo "The server will start automatically on login."
 echo "To uninstall: bash $(dirname "$0")/uninstall-launchd.sh"

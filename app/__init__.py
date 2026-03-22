@@ -7,7 +7,9 @@ db = SQLAlchemy()
 
 _DEFAULT_DATA_DIR = os.path.expanduser("~/.names-and-faces")
 
-DATA_DIR = os.environ.get("NAMES_AND_FACES_DATA_DIR", _DEFAULT_DATA_DIR)
+DATA_DIR = os.path.expanduser(
+    os.environ.get("NAMES_AND_FACES_DATA_DIR", _DEFAULT_DATA_DIR)
+)
 MEDIA_DIR = os.path.join(DATA_DIR, "media")
 
 

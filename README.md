@@ -19,6 +19,8 @@ bash scripts/install-launchd.sh
 
 The server is now running at [http://localhost:5050](http://localhost:5050) and will auto-start on login. To run manually instead: `uv run python run.py`.
 
+If [Tailscale](https://tailscale.com/) is running, the install script automatically configures `tailscale serve` so you can access the app from any device on your tailnet (e.g. your phone). The tailnet URL is printed at the end of the install output.
+
 To uninstall the auto-start: `bash scripts/uninstall-launchd.sh`
 
 ## Configuration (.env)
@@ -35,7 +37,7 @@ ANTHROPIC_API_KEY=
 
 # Custom data directory (default: ~/.names-and-faces).
 # Set to an iCloud path for automatic backup:
-# NAMES_AND_FACES_DATA_DIR=~/Library/Mobile Documents/com~apple~CloudDocs/names-and-faces-data
+# NAMES_AND_FACES_DATA_DIR="$HOME/Library/Mobile Documents/com~apple~CloudDocs/names-and-faces-data"
 ```
 
 After editing `.env`, run `bash scripts/install-launchd.sh` to apply.

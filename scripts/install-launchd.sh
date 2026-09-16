@@ -16,7 +16,11 @@ UV_PATH="$(command -v uv 2>/dev/null || echo "/opt/homebrew/bin/uv")"
 PORT="${NAMES_AND_FACES_PORT:-5050}"
 DATA_DIR="${NAMES_AND_FACES_DATA_DIR:-$HOME/.names-and-faces}"
 DATA_DIR="${DATA_DIR/#\~/$HOME}"
-LOG_DIR="$DATA_DIR/logs"
+# Logs live in ~/Library/Logs (not the data dir): launchd cannot reliably open
+# stdout/stderr files inside iCloud Drive, which makes the agent fail to spawn
+# with EX_CONFIG. Keeping logs local also avoids syncing them to iCloud.
+LOG_DIR="$HOME/Library/Logs"
+LOG_FILE="$LOG_DIR/names-and-faces.log"
 
 if [ ! -f "$UV_PATH" ]; then
     echo "Error: uv not found at $UV_PATH"
@@ -72,14 +76,11 @@ cat > "$PLIST_PATH" <<PLIST
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
-    <dict>
-        <key>SuccessfulExit</key>
-        <false/>
-    </dict>
+    <true/>
     <key>StandardOutPath</key>
-    <string>${LOG_DIR}/stdout.log</string>
+    <string>${LOG_FILE}</string>
     <key>StandardErrorPath</key>
-    <string>${LOG_DIR}/stderr.log</string>
+    <string>${LOG_FILE}</string>
 </dict>
 </plist>
 PLIST
@@ -90,7 +91,7 @@ echo "Names & Faces server installed and started."
 echo ""
 echo "  URL:      http://localhost:${PORT}"
 echo "  Data dir: ${DATA_DIR}"
-echo "  Logs:     ${LOG_DIR}"
+echo "  Logs:     ${LOG_FILE}"
 echo "  Plist:    ${PLIST_PATH}"
 
 if command -v tailscale &>/dev/null && tailscale status &>/dev/null; then

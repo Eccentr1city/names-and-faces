@@ -23,6 +23,25 @@ If [Tailscale](https://tailscale.com/) is running, the install script automatica
 
 To uninstall the auto-start: `bash scripts/uninstall-launchd.sh`
 
+### Managing the service
+
+The LaunchAgent is `~/Library/LaunchAgents/com.namesandfaces.server.plist`. It starts at login and restarts if it crashes. Logs go to `~/Library/Logs/names-and-faces.log`.
+
+```bash
+# restart (e.g. after pulling changes)
+launchctl kickstart -k gui/$(id -u)/com.namesandfaces.server
+
+# stop / start
+launchctl bootout gui/$(id -u)/com.namesandfaces.server
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.namesandfaces.server.plist
+
+# check status and tail logs
+launchctl print gui/$(id -u)/com.namesandfaces.server | grep -E "state|last exit"
+tail -f ~/Library/Logs/names-and-faces.log
+```
+
+If the service shows `last exit code = 78: EX_CONFIG` and never starts, launchd could not spawn it (typically because a path in the plist is unavailable). Re-run `bash scripts/install-launchd.sh` to regenerate the plist.
+
 ## Configuration (.env)
 
 All optional. The app works without any of these, but they unlock better scraping and AI features.

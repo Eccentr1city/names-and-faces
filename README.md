@@ -61,6 +61,18 @@ ANTHROPIC_API_KEY=
 
 After editing `.env`, run `bash scripts/install-launchd.sh` to apply.
 
+## Keeping cards fresh after edits
+
+Re-exporting and importing the deck never touches your review schedule: notes are matched by a stable ID, so Anki just updates their content. That is usually what you want, but when someone's name, photo, or context changes, the cards that test that information are effectively new material.
+
+On a person's edit page, tick **Review changed cards soon** before saving. The app works out which card types the edit affects (a context change flags only the two context cards; a name or photo change flags all four) and remembers them. Then:
+
+1. **Export** the deck and import it into Anki as usual. Flagged notes carry `nf::review-soon::<card>` tags (Anki replaces tags on re-import).
+2. **Reschedule** the cards. A banner on the home page lists the flagged people and offers two routes:
+   - If Anki desktop is open with the [AnkiConnect](https://ankiweb.net/shared/info/2055492159) add-on, click **Reschedule in Anki** (due today, tomorrow, within 3 days, or reset to new). Set `ANKICONNECT_URL` in `.env` if it is not on the default `http://127.0.0.1:8765`.
+   - Otherwise copy the search string from the banner into Anki's browser (desktop or AnkiMobile), select all, and use **Set Due Date**. The search matches only the affected card types, not the person's other cards.
+3. **Clear flags** (done automatically after an AnkiConnect reschedule). The tags disappear from Anki on the next export + import.
+
 ## CSV Import
 
 Required column: `name`. Optional: `photo_url`, `context`.

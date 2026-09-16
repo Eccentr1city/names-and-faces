@@ -13,6 +13,8 @@ from werkzeug.utils import secure_filename
 
 from app import MEDIA_DIR, db
 from app.models import Person
+from app.services import ankiconnect
+from app.services.review_soon import CARD_LABELS, anki_search, cards_for_changes
 
 people_bp = Blueprint("people", __name__)
 
@@ -49,7 +51,21 @@ def index():
         )
     else:
         people = Person.query.order_by(Person.created_at.desc()).all()
-    return render_template("index.html", people=people, search=search)
+
+    pending = (
+        Person.query.filter(Person.review_soon_cards.isnot(None))
+        .filter(Person.review_soon_cards != "")
+        .order_by(Person.name)
+        .all()
+    )
+    return render_template(
+        "index.html",
+        people=people,
+        search=search,
+        pending=pending,
+        anki_search=anki_search() if pending else "",
+        anki_available=ankiconnect.is_available() if pending else False,
+    )
 
 
 @people_bp.route("/check-duplicate", methods=["POST"])
@@ -121,6 +137,12 @@ def edit_person(person_id: str):
             flash("Name is required.", "error")
             return render_template("person_form.html", person=person, mode="edit")
 
+        before = {
+            "name": person.name,
+            "context": (person.context or "").strip(),
+            "face": person.face_filename,
+        }
+
         person.name = name
         person.context = request.form.get("context", "").strip()
         person.source_url = request.form.get("source_url", "").strip()
@@ -137,6 +159,24 @@ def edit_person(person_id: str):
             person.face_filename = _save_photo(photo)
         elif request.form.get("scraped_face_filename") and not person.face_filename:
             person.face_filename = request.form["scraped_face_filename"]
+
+        if "review_soon" in request.form:
+            after = {
+                "name": person.name,
+                "context": (person.context or "").strip(),
+                "face": person.face_filename,
+            }
+            changed = [f for f in before if before[f] != after[f]]
+            flagged = cards_for_changes(changed)
+            if flagged:
+                person.flag_review_soon(flagged)
+                labels = ", ".join(CARD_LABELS[k] for k in flagged)
+                flash(f"Flagged for early review: {labels}.", "info")
+            else:
+                flash(
+                    "Name, photo, and context are unchanged, so no cards were flagged.",
+                    "info",
+                )
 
         db.session.commit()
         flash(f"Updated {person.name}.", "success")

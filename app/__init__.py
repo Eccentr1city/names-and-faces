@@ -42,5 +42,27 @@ def create_app() -> Flask:
         from app import models  # noqa: F401
 
         db.create_all()
+        _add_missing_columns()
 
     return app
+
+
+# Columns added after the initial schema. create_all() only creates missing
+# tables, so new columns on the existing ``people`` table are added here.
+_NEW_COLUMNS = {
+    "people": {
+        "review_soon_cards": "TEXT DEFAULT ''",
+    }
+}
+
+
+def _add_missing_columns() -> None:
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(db.engine)
+    for table, columns in _NEW_COLUMNS.items():
+        existing = {c["name"] for c in inspector.get_columns(table)}
+        for name, ddl in columns.items():
+            if name not in existing:
+                with db.engine.begin() as conn:
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}"))

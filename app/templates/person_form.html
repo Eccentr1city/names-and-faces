@@ -141,6 +141,29 @@
         </div>
       </div>
 
+      {% if mode == 'edit' %}
+      <!-- Early review in Anki -->
+      <div class="mb-6 p-4 bg-amber-50/60 dark:bg-amber-900/10 rounded-lg border border-amber-200 dark:border-amber-900/40">
+        <label class="flex items-start gap-2.5 text-sm cursor-pointer">
+          <input type="checkbox" name="review_soon" value="on"
+            class="mt-0.5 rounded border-gray-300 dark:border-gray-600 text-amber-600 focus:ring-amber-500 bg-white dark:bg-gray-700">
+          <span>
+            <span class="font-medium text-gray-700 dark:text-gray-200">Review changed cards soon</span>
+            <span class="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+              If the name, photo, or context changes with this save, the cards that test them get flagged.
+              They're tagged in the next export so you can bring them forward in Anki; everything else keeps its schedule.
+            </span>
+          </span>
+        </label>
+        {% if person.review_soon_list() %}
+        <p class="mt-2.5 text-xs text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          Already flagged: {{ person.review_soon_labels()|join(', ') }}
+        </p>
+        {% endif %}
+      </div>
+      {% endif %}
+
       <!-- Hidden fields populated by scraper -->
       <input type="hidden" name="source" id="source" value="{{ person.source if person else 'manual' }}">
       <input type="hidden" name="source_url" id="source_url" value="{{ person.source_url if person else '' }}">

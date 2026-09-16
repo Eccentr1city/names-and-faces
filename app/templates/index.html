@@ -28,6 +28,68 @@
   </div>
 </div>
 
+{% if pending %}
+<div class="mb-8 p-5 bg-amber-50 dark:bg-amber-900/15 border border-amber-200 dark:border-amber-900/40 rounded-xl" x-data="{ copied: false }">
+  <div class="flex flex-col md:flex-row md:items-start justify-between gap-4">
+    <div class="min-w-0">
+      <h2 class="font-semibold text-amber-900 dark:text-amber-200 flex items-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        {{ pending|length }} {{ 'person' if pending|length == 1 else 'people' }} flagged for early review
+      </h2>
+      <p class="text-sm text-amber-800 dark:text-amber-300/80 mt-1">
+        {% for p in pending %}<a href="/edit/{{ p.id }}" class="underline decoration-amber-300 hover:decoration-amber-600">{{ p.name }}</a> <span class="text-xs opacity-70">({{ p.review_soon_labels()|join(', ') }})</span>{{ ', ' if not loop.last }}{% endfor %}
+      </p>
+      <ol class="mt-3 text-sm text-amber-900/90 dark:text-amber-200/80 list-decimal list-inside space-y-1">
+        <li><strong>Export</strong> the deck and import it into Anki as usual. The flagged cards get tagged.</li>
+        <li>
+          {% if anki_available %}
+          <strong>Reschedule</strong> them with the button (Anki desktop + AnkiConnect detected), or
+          {% else %}
+          <strong>Reschedule</strong> them:
+          {% endif %}
+          in Anki's browser, paste this search, select all, and use <em>Set Due Date</em> (Cards menu; on AnkiMobile: Select All &rarr; Reschedule).
+          <div class="mt-1.5 flex items-center gap-2">
+            <code id="ankiSearch" class="flex-1 min-w-0 block text-xs bg-white dark:bg-gray-900 border border-amber-200 dark:border-amber-900/40 rounded px-2 py-1.5 overflow-x-auto whitespace-nowrap">{{ anki_search }}</code>
+            <button type="button"
+              @click="navigator.clipboard.writeText(document.getElementById('ankiSearch').textContent); copied = true; setTimeout(() => copied = false, 1500)"
+              class="px-2.5 py-1.5 text-xs font-medium bg-white dark:bg-gray-800 border border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-200 rounded hover:bg-amber-100 dark:hover:bg-amber-900/40 whitespace-nowrap">
+              <span x-show="!copied">Copy</span><span x-show="copied" x-cloak>Copied</span>
+            </button>
+          </div>
+        </li>
+        <li><strong>Clear</strong> the flags once done. The tags are removed from Anki on your next export + import.</li>
+      </ol>
+    </div>
+    <div class="flex flex-col gap-2 flex-shrink-0 md:w-56">
+      {% if anki_available %}
+      <form method="POST" action="/deck/review-soon/reschedule" class="flex flex-col gap-2"
+        onsubmit="return confirm('Reschedule the flagged cards in Anki now? Make sure you have imported the latest export first.')">
+        <select name="days" class="px-3 py-2 border border-amber-300 dark:border-amber-800 bg-white dark:bg-gray-800 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 outline-none">
+          <option value="0">Due today</option>
+          <option value="1">Due tomorrow</option>
+          <option value="0-3">Due within 3 days</option>
+          <option value="forget">Reset to new</option>
+        </select>
+        <button type="submit" class="px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition-colors">
+          Reschedule in Anki
+        </button>
+      </form>
+      {% else %}
+      <p class="text-xs text-amber-700/80 dark:text-amber-300/60">
+        Tip: with Anki desktop open and the <a href="https://ankiweb.net/shared/info/2055492159" target="_blank" class="underline">AnkiConnect</a> add-on installed, a one-click reschedule button appears here.
+      </p>
+      {% endif %}
+      <form method="POST" action="/deck/review-soon/clear"
+        onsubmit="return confirm('Clear all early-review flags? Only do this after rescheduling the cards in Anki.')">
+        <button type="submit" class="w-full px-4 py-2 bg-white dark:bg-gray-800 border border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-sm font-medium rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors">
+          Clear flags
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 {% if people %}
 <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
   {% for person in people %}
@@ -62,6 +124,9 @@
       {% endif %}
       {% if person.card_context_to_person and person.has_context() %}
         <span class="inline-block px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-[10px] font-medium rounded">C&#8594;P</span>
+      {% endif %}
+      {% if person.review_soon_list() %}
+        <span class="inline-block px-1.5 py-0.5 bg-amber-500 text-white text-[10px] font-medium rounded" title="Flagged for early review: {{ person.review_soon_labels()|join(', ') }}">&#8635; soon</span>
       {% endif %}
     </div>
   </div>

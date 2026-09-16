@@ -4,6 +4,7 @@ import os
 import genanki
 
 from app import MEDIA_DIR
+from app.services.review_soon import TAG_ROOT, tag_for
 
 _TEMPLATE_DIR = os.path.join(os.path.dirname(__file__), "card_templates")
 
@@ -125,7 +126,12 @@ def generate_deck(people: list, output_path: str) -> None:
             toggle_ctx_to_person,
         ]
 
-        note = PersonNote(person_id=person.id, model=model, fields=fields)
+        # Tags are replaced on re-import, so flagged cards become findable in
+        # Anki and the tags disappear again on the export after they're cleared.
+        flagged = person.review_soon_list()
+        tags = [TAG_ROOT, *(tag_for(k) for k in flagged)] if flagged else []
+
+        note = PersonNote(person_id=person.id, model=model, fields=fields, tags=tags)
         deck.add_note(note)
 
         if person.face_filename:

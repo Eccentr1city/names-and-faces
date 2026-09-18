@@ -95,10 +95,16 @@ echo "  Logs:     ${LOG_FILE}"
 echo "  Plist:    ${PLIST_PATH}"
 
 if command -v tailscale &>/dev/null && tailscale status &>/dev/null; then
-    tailscale serve --bg --http "${PORT}" "http://127.0.0.1:${PORT}" 2>/dev/null || true
     TS_HOSTNAME="$(tailscale status --json 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin)['Self']['DNSName'].rstrip('.'))" 2>/dev/null || true)"
+    # Prefer HTTPS (needs "HTTPS Certificates" enabled in the Tailscale admin console); fall back to plain HTTP.
+    if tailscale serve --yes --bg --https "${PORT}" "http://127.0.0.1:${PORT}" >/dev/null 2>&1; then
+        TS_URL="https://${TS_HOSTNAME}:${PORT}"
+    else
+        tailscale serve --bg --http "${PORT}" "http://127.0.0.1:${PORT}" 2>/dev/null || true
+        TS_URL="http://${TS_HOSTNAME}:${PORT}"
+    fi
     if [ -n "$TS_HOSTNAME" ]; then
-        echo "  Tailscale: http://${TS_HOSTNAME}:${PORT}"
+        echo "  Tailscale: ${TS_URL}"
     fi
 fi
 

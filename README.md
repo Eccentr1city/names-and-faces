@@ -19,7 +19,7 @@ bash scripts/install-launchd.sh
 
 The server is now running at [http://localhost:5050](http://localhost:5050) and will auto-start on login. To run manually instead: `uv run python run.py`.
 
-If [Tailscale](https://tailscale.com/) is running, the install script automatically configures `tailscale serve` so you can access the app from any device on your tailnet (e.g. your phone). The tailnet URL is printed at the end of the install output.
+If [Tailscale](https://tailscale.com/) is running, the install script automatically configures `tailscale serve` so you can access the app from any device on your tailnet (e.g. your phone). The tailnet URL is printed at the end of the install output. It uses HTTPS if certificates are enabled for your tailnet (admin console, DNS, "HTTPS Certificates"), which lets phone browsers install the app to the home screen; otherwise it falls back to HTTP.
 
 To uninstall the auto-start: `bash scripts/uninstall-launchd.sh`
 

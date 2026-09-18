@@ -73,5 +73,19 @@
 
     {% block content %}{% endblock %}
   </main>
+  <script>
+    // The installed (home-screen) app resumes the same page instead of reloading it,
+    // so changes made on another device don't show up. Reload when coming back after a
+    // pause, unless the user has started typing into a form.
+    (() => {
+      let hiddenAt = null, dirty = false;
+      document.addEventListener('input', () => { dirty = true; }, true);
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') { hiddenAt = Date.now(); return; }
+        if (hiddenAt && Date.now() - hiddenAt > 15000 && !dirty) location.reload();
+      });
+      window.addEventListener('pageshow', (e) => { if (e.persisted && !dirty) location.reload(); });
+    })();
+  </script>
 </body>
 </html>

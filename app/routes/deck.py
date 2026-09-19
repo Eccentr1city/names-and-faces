@@ -1,7 +1,7 @@
 import os
 import tempfile
 
-from flask import Blueprint, flash, redirect, request, send_file, url_for
+from flask import Blueprint, flash, jsonify, redirect, request, send_file, url_for
 
 from app import db
 from app.models import Person
@@ -83,3 +83,40 @@ def reschedule_review_soon():
         "success",
     )
     return redirect(url_for("people.index"))
+
+
+def _stale_notes():
+    return ankiconnect.stale_notes(Person.query.all())
+
+
+@deck_bp.route("/anki/stale", methods=["GET"])
+def anki_stale():
+    """Notes in Anki's deck that no longer correspond to a person in the app."""
+    try:
+        return jsonify({"stale": _stale_notes()})
+    except ankiconnect.AnkiConnectError as e:
+        return jsonify({"error": str(e)}), 502
+
+
+@deck_bp.route("/anki/stale/<action>", methods=["POST"])
+def anki_stale_act(action: str):
+    """Suspend or delete stale notes in Anki. Only ids currently stale are touched."""
+    if action not in ("suspend", "delete"):
+        return jsonify({"error": "unknown action"}), 404
+    data = request.get_json(silent=True) or {}
+    try:
+        requested = {int(i) for i in data.get("note_ids", [])}
+    except (TypeError, ValueError):
+        return jsonify({"error": "note_ids must be integers"}), 400
+    try:
+        allowed = {n["note_id"] for n in _stale_notes()}
+        ids = sorted(requested & allowed)
+        if not ids:
+            return jsonify({"done": 0, "stale": sorted(allowed)})
+        if action == "delete":
+            ankiconnect.delete_notes(ids)
+        else:
+            ankiconnect.suspend_notes(ids)
+        return jsonify({"done": len(ids)})
+    except ankiconnect.AnkiConnectError as e:
+        return jsonify({"error": str(e)}), 502

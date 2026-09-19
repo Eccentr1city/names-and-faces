@@ -64,7 +64,7 @@ def index():
         search=search,
         pending=pending,
         anki_search=anki_search() if pending else "",
-        anki_available=ankiconnect.is_available() if pending else False,
+        anki_available=ankiconnect.is_available(),
     )
 
 

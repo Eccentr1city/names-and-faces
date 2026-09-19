@@ -90,6 +90,90 @@
 </div>
 {% endif %}
 
+{% if anki_available %}
+<div class="mb-8 p-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-sm"
+  x-data="staleNotes()" x-init="load()">
+  <div class="flex items-center justify-between gap-4">
+    <p class="text-gray-600 dark:text-gray-300 flex items-center gap-2">
+      <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+      Anki desktop connected.
+      <span x-show="loading">Checking for notes without a matching person&hellip;</span>
+      <span x-show="!loading && !error && stale.length === 0" x-cloak>Every note in the deck matches a person in the app.</span>
+      <span x-show="error" x-cloak class="text-red-600 dark:text-red-400" x-text="error"></span>
+    </p>
+    <button type="button" @click="load()" :disabled="loading" class="text-xs text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 disabled:opacity-50">Re-check</button>
+  </div>
+
+  <div x-show="stale.length > 0" x-cloak class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-800">
+    <p class="font-medium text-gray-800 dark:text-gray-100">
+      <span x-text="stale.length"></span> note<span x-show="stale.length !== 1">s</span> in Anki with no matching person
+      <span class="font-normal text-gray-500 dark:text-gray-400">(importing never deletes, so these are usually people you removed here)</span>
+    </p>
+    <ul class="mt-2 space-y-1.5">
+      <template x-for="n in stale" :key="n.note_id">
+        <li class="flex items-center gap-3">
+          <input type="checkbox" :value="n.note_id" x-model="selected" class="rounded border-gray-300 dark:border-gray-600 text-brand-600 focus:ring-brand-500 bg-white dark:bg-gray-700">
+          <span class="font-medium" x-text="n.name"></span>
+          <span class="text-gray-500 dark:text-gray-400 truncate" x-text="n.context"></span>
+        </li>
+      </template>
+    </ul>
+    <div class="mt-3 flex flex-wrap items-center gap-2">
+      <button type="button" @click="act('suspend')" :disabled="busy || selected.length === 0"
+        class="px-3 py-1.5 text-xs font-medium bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50">
+        Suspend in Anki
+      </button>
+      <button type="button" @click="act('delete')" :disabled="busy || selected.length === 0"
+        class="px-3 py-1.5 text-xs font-medium bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50">
+        Delete from Anki
+      </button>
+      <button type="button" @click="selected = selected.length === stale.length ? [] : stale.map(n => String(n.note_id))"
+        class="px-2 py-1.5 text-xs text-gray-500 hover:text-gray-800 dark:hover:text-gray-200">
+        <span x-text="selected.length === stale.length ? 'Select none' : 'Select all'"></span>
+      </button>
+      <span x-show="message" x-cloak class="text-xs text-gray-500 dark:text-gray-400" x-text="message"></span>
+    </div>
+  </div>
+</div>
+
+<script>
+function staleNotes() {
+  return {
+    stale: [], selected: [], loading: false, busy: false, error: '', message: '',
+    async load() {
+      this.loading = true; this.error = ''; this.message = '';
+      try {
+        const r = await fetch('/deck/anki/stale');
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error || r.statusText);
+        this.stale = d.stale;
+        this.selected = this.selected.filter(id => this.stale.some(n => String(n.note_id) === id));
+      } catch (e) { this.error = 'Could not check Anki: ' + e.message; }
+      finally { this.loading = false; }
+    },
+    async act(action) {
+      const n = this.selected.length;
+      const verb = action === 'delete' ? 'Delete' : 'Suspend';
+      if (!confirm(`${verb} ${n} note${n === 1 ? '' : 's'} in Anki?${action === 'delete' ? ' This also removes their review history.' : ''}`)) return;
+      this.busy = true; this.message = '';
+      try {
+        const r = await fetch('/deck/anki/stale/' + action, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ note_ids: this.selected.map(Number) })
+        });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error || r.statusText);
+        this.message = `${verb}${action === 'delete' ? 'd' : 'ed'} ${d.done} note${d.done === 1 ? '' : 's'}. Sync Anki to push the change to other devices.`;
+        this.selected = [];
+        await this.load();
+      } catch (e) { this.error = 'Anki action failed: ' + e.message; }
+      finally { this.busy = false; }
+    }
+  };
+}
+</script>
+{% endif %}
+
 {% if people %}
 <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
   {% for person in people %}

@@ -5,7 +5,9 @@ flagged cards can be rescheduled directly instead of via a manual search.
 Set ANKICONNECT_URL to override the default endpoint.
 """
 
+import html
 import os
+import re
 
 import requests
 
@@ -60,4 +62,64 @@ def reschedule(query: str, days: str = "0") -> int:
         _invoke("forgetCards", cards=cards)
     else:
         _invoke("setDueDate", cards=cards, days=days)
+    return len(cards)
+
+
+DECK_NAME = "Names and Faces"
+
+_IMG_SRC_RE = re.compile(r'src="([^"]+)"')
+_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def _field(note: dict, name: str) -> str:
+    return note.get("fields", {}).get(name, {}).get("value", "")
+
+
+def deck_notes() -> list[dict]:
+    """Notes in the Names and Faces deck: id, plain-text name, face filename, context."""
+    ids = _invoke("findNotes", query=f'"deck:{DECK_NAME}"')
+    if not ids:
+        return []
+    info = _invoke("notesInfo", notes=ids)
+    notes = []
+    for n in info or []:
+        face_match = _IMG_SRC_RE.search(_field(n, "Face"))
+        notes.append(
+            {
+                "note_id": n["noteId"],
+                "name": html.unescape(_TAG_RE.sub("", _field(n, "Name"))).strip(),
+                "face": face_match.group(1) if face_match else "",
+                "context": html.unescape(_TAG_RE.sub("", _field(n, "Context"))).strip(),
+            }
+        )
+    return notes
+
+
+def stale_notes(people: list) -> list[dict]:
+    """Deck notes with no matching person in the app.
+
+    A note matches a person if either the name or the photo filename agrees, so
+    a rename or a photo swap that has not been imported yet is not reported.
+    Importing never deletes, so these are usually people removed from the app.
+    """
+    names = {(p.name or "").strip() for p in people}
+    faces = {p.face_filename for p in people if p.face_filename}
+    return [
+        n
+        for n in deck_notes()
+        if n["name"] not in names and (not n["face"] or n["face"] not in faces)
+    ]
+
+
+def delete_notes(note_ids: list[int]) -> None:
+    _invoke("deleteNotes", notes=note_ids)
+
+
+def suspend_notes(note_ids: list[int]) -> int:
+    """Suspend every card of the given notes. Returns the card count."""
+    query = " or ".join(f"nid:{i}" for i in note_ids)
+    cards = _invoke("findCards", query=query)
+    if not cards:
+        return 0
+    _invoke("suspend", cards=cards)
     return len(cards)

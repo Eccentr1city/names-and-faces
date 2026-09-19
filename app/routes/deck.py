@@ -17,9 +17,9 @@ def export_deck():
     person_ids = request.form.getlist("person_ids")
 
     if person_ids:
-        people = Person.query.filter(Person.id.in_(person_ids)).all()
+        people = Person.active().filter(Person.id.in_(person_ids)).all()
     else:
-        people = Person.query.all()
+        people = Person.active().all()
 
     if not people:
         flash("No people to export.", "error")
@@ -40,7 +40,8 @@ def export_deck():
 
 def _clear_review_soon_flags() -> int:
     count = (
-        Person.query.filter(Person.review_soon_cards.isnot(None))
+        Person.active()
+        .filter(Person.review_soon_cards.isnot(None))
         .filter(Person.review_soon_cards != "")
         .update({"review_soon_cards": ""})
     )
@@ -86,7 +87,7 @@ def reschedule_review_soon():
 
 
 def _stale_notes():
-    return ankiconnect.stale_notes(Person.query.all())
+    return ankiconnect.stale_notes(Person.active().all())
 
 
 @deck_bp.route("/anki/stale", methods=["GET"])

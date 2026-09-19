@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timezone
 
 from flask import (
     Blueprint,
@@ -9,6 +10,7 @@ from flask import (
     send_from_directory,
     url_for,
 )
+from markupsafe import Markup, escape
 from werkzeug.utils import secure_filename
 
 from app import MEDIA_DIR, db
@@ -45,15 +47,17 @@ def index():
     search = request.args.get("q", "").strip()
     if search:
         people = (
-            Person.query.filter(Person.name.ilike(f"%{search}%"))
+            Person.active()
+            .filter(Person.name.ilike(f"%{search}%"))
             .order_by(Person.created_at.desc())
             .all()
         )
     else:
-        people = Person.query.order_by(Person.created_at.desc()).all()
+        people = Person.active().order_by(Person.created_at.desc()).all()
 
     pending = (
-        Person.query.filter(Person.review_soon_cards.isnot(None))
+        Person.active()
+        .filter(Person.review_soon_cards.isnot(None))
         .filter(Person.review_soon_cards != "")
         .order_by(Person.name)
         .all()
@@ -63,6 +67,7 @@ def index():
         people=people,
         search=search,
         pending=pending,
+        trash_count=Person.trashed().count(),
         anki_search=anki_search() if pending else "",
         anki_available=ankiconnect.is_available(),
     )
@@ -79,7 +84,7 @@ def check_duplicate():
     if not name:
         return jsonify({"duplicate": False})
 
-    query = Person.query.filter(db.func.lower(Person.name) == name.lower())
+    query = Person.active().filter(db.func.lower(Person.name) == name.lower())
     if exclude_id:
         query = query.filter(Person.id != exclude_id)
     existing = query.first()
@@ -187,15 +192,66 @@ def edit_person(person_id: str):
 
 @people_bp.route("/delete/<person_id>", methods=["POST"])
 def delete_person(person_id: str):
+    """Move a person to the trash. The photo stays until permanent deletion."""
     person = Person.query.get_or_404(person_id)
+    person.deleted_at = datetime.now(timezone.utc)
+    person.review_soon_cards = ""
+    db.session.commit()
+    undo = url_for("people.restore_person", person_id=person.id)
+    flash(
+        Markup(
+            f"Moved {escape(person.name)} to the trash. "
+            f'<form method="POST" action="{undo}" class="inline">'
+            f'<button type="submit" class="underline font-semibold">Undo</button></form>'
+        ),
+        "success",
+    )
+    return redirect(url_for("people.index"))
+
+
+@people_bp.route("/trash")
+def trash():
+    return render_template("trash.html", people=Person.trashed().all())
+
+
+@people_bp.route("/trash/restore/<person_id>", methods=["POST"])
+def restore_person(person_id: str):
+    person = Person.query.get_or_404(person_id)
+    person.deleted_at = None
+    db.session.commit()
+    flash(f"Restored {person.name}.", "success")
+    return redirect(request.referrer or url_for("people.index"))
+
+
+def _purge(person: Person) -> None:
     if person.face_filename:
         photo_path = os.path.join(MEDIA_DIR, person.face_filename)
         if os.path.exists(photo_path):
             os.remove(photo_path)
-    name = person.name
     db.session.delete(person)
+
+
+@people_bp.route("/trash/purge/<person_id>", methods=["POST"])
+def purge_person(person_id: str):
+    """Permanently delete one trashed person and their photo."""
+    person = Person.trashed().filter(Person.id == person_id).first_or_404()
+    name = person.name
+    _purge(person)
     db.session.commit()
-    flash(f"Deleted {name}.", "success")
+    flash(f"Permanently deleted {name}.", "success")
+    return redirect(url_for("people.trash"))
+
+
+@people_bp.route("/trash/empty", methods=["POST"])
+def empty_trash():
+    people = Person.trashed().all()
+    for person in people:
+        _purge(person)
+    db.session.commit()
+    flash(
+        f"Permanently deleted {len(people)} {'person' if len(people) == 1 else 'people'}.",
+        "success",
+    )
     return redirect(url_for("people.index"))
 
 

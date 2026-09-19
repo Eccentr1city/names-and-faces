@@ -30,12 +30,28 @@ class Person(db.Model):  # type: ignore[name-defined]
     source = db.Column(db.Text, default="manual")
     source_url = db.Column(db.Text, nullable=True, default="")
 
+    # Soft delete: set when the person is moved to the trash. Trashed people are
+    # hidden everywhere (grid, export, duplicate check, Anki matching) until
+    # restored or permanently deleted from the trash page.
+    deleted_at = db.Column(db.DateTime, nullable=True)
+
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(
         db.DateTime,
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
+
+    @classmethod
+    def active(cls):
+        """Query over people not in the trash."""
+        return cls.query.filter(cls.deleted_at.is_(None))
+
+    @classmethod
+    def trashed(cls):
+        return cls.query.filter(cls.deleted_at.isnot(None)).order_by(
+            cls.deleted_at.desc()
+        )
 
     def has_context(self) -> bool:
         return bool(self.context and self.context.strip())
@@ -64,6 +80,7 @@ class Person(db.Model):  # type: ignore[name-defined]
             "review_soon_cards": self.review_soon_list(),
             "source": self.source,
             "source_url": self.source_url or "",
+            "deleted_at": self.deleted_at.isoformat() if self.deleted_at else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }

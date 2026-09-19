@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Trash - Names &amp; Faces{% endblock %}
+
+{% block content %}
+<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+  <div class="flex items-center gap-3">
+    <a href="/" class="text-gray-400 hover:text-gray-300 transition-colors">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+    </a>
+    <div>
+      <h1 class="text-2xl font-bold">Trash</h1>
+      <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+        {{ people|length }} {{ 'person' if people|length == 1 else 'people' }}. Trashed people are left out of exports; their notes stay in Anki until you remove them there.
+      </p>
+    </div>
+  </div>
+  {% if people %}
+  <form method="POST" action="/trash/empty" onsubmit="return confirm('Permanently delete everyone in the trash, including their photos? This cannot be undone.')">
+    <button type="submit" class="inline-flex items-center gap-1.5 px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors whitespace-nowrap">
+      Empty trash
+    </button>
+  </form>
+  {% endif %}
+</div>
+
+{% if people %}
+<div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 divide-y divide-gray-200 dark:divide-gray-800">
+  {% for person in people %}
+  <div class="flex items-center gap-4 p-4">
+    <div class="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden flex-shrink-0 grayscale">
+      {% if person.face_filename %}
+        <img src="/media/{{ person.face_filename }}" alt="" class="w-full h-full object-cover">
+      {% endif %}
+    </div>
+    <div class="flex-1 min-w-0">
+      <p class="font-semibold text-sm truncate">{{ person.name }}</p>
+      <p class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ person.context or '' }}</p>
+      <p class="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">Trashed {{ person.deleted_at.strftime('%b %-d, %Y') }}</p>
+    </div>
+    <form method="POST" action="/trash/restore/{{ person.id }}">
+      <button type="submit" class="px-3 py-1.5 text-xs font-medium bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">Restore</button>
+    </form>
+    <form method="POST" action="/trash/purge/{{ person.id }}" onsubmit="return confirm('Permanently delete {{ person.name|e }} and their photo?')">
+      <button type="submit" class="px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300">Delete forever</button>
+    </form>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="text-center py-16 text-gray-500 dark:text-gray-400">
+  <p class="text-sm">The trash is empty.</p>
+</div>
+{% endif %}
+{% endblock %}

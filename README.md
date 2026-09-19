@@ -75,6 +75,10 @@ On a person's edit page, tick **Review changed cards soon** before saving. The a
 
 When AnkiConnect is reachable, the home page also lists any notes in the Anki deck that no longer match a person in the app (importing never deletes notes), with buttons to suspend or delete them in Anki. Matching is by name or photo file, so a rename you haven't imported yet is not reported.
 
+## Trash
+
+Deleting a person moves them to the trash (linked from the count on the home page) rather than removing them. Trashed people are excluded from the grid, exports, and duplicate checks, and their photos are kept, so a mistaken deletion can be undone with **Restore**. **Delete forever** or **Empty trash** removes them and their photos for good. Anki notes for trashed people show up in the stale-notes list when AnkiConnect is connected.
+
 ## CSV Import
 
 Required column: `name`. Optional: `photo_url`, `context`.

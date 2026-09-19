@@ -52,6 +52,7 @@ def create_app() -> Flask:
 _NEW_COLUMNS = {
     "people": {
         "review_soon_cards": "TEXT DEFAULT ''",
+        "deleted_at": "DATETIME",
     }
 }
 

@@ -6,7 +6,9 @@
 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
   <div>
     <h1 class="text-2xl font-bold">People</h1>
-    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{{ people|length }} {{ 'person' if people|length == 1 else 'people' }} in your collection</p>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+      {{ people|length }} {{ 'person' if people|length == 1 else 'people' }} in your collection{% if trash_count %} &middot; <a href="/trash" class="underline decoration-gray-300 dark:decoration-gray-600 hover:text-gray-700 dark:hover:text-gray-200">{{ trash_count }} in trash</a>{% endif %}
+    </p>
   </div>
   <div class="flex items-center gap-3 w-full sm:w-auto">
     <form method="GET" action="/" class="flex-1 sm:flex-initial">

@@ -82,6 +82,19 @@ def reschedule_review_soon():
     return redirect(url_for("people.index"))
 
 
+def _explain_sync_error(err: str) -> str:
+    """Turn AnkiConnect's raw sync failure into an instruction."""
+    if "auth not configured" in err:
+        return "Anki desktop is not logged in to AnkiWeb. Log in via Sync in Anki, then sync by hand this time."
+    if "Sync status" in err:
+        return (
+            "Anki needs a one-time full sync. Click Sync in Anki desktop and choose "
+            "Upload to AnkiWeb (the desktop collection is the one this app writes to). "
+            "Later pushes sync normally."
+        )
+    return f"{err}. Sync by hand in Anki."
+
+
 def _anki_error(e: Exception):
     return jsonify({"error": str(e)}), 502
 
@@ -123,7 +136,7 @@ def anki_push():
     flash("; ".join(parts) + ".", "success")
     if r["sync_error"]:
         flash(
-            f"Imported, but AnkiWeb sync failed: {r['sync_error']}. Sync manually in Anki.",
+            f"Imported and rescheduled, but AnkiWeb sync did not run: {_explain_sync_error(r['sync_error'])}",
             "error",
         )
     else:

@@ -165,6 +165,8 @@ def edit_person(person_id: str):
         elif request.form.get("scraped_face_filename") and not person.face_filename:
             person.face_filename = request.form["scraped_face_filename"]
 
+        person.touch()
+
         if "review_soon" in request.form:
             after = {
                 "name": person.name,

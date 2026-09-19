@@ -64,6 +64,7 @@
     </div>
     <div class="flex flex-col gap-2 flex-shrink-0 md:w-56">
       {% if anki_available %}
+      <p class="text-xs text-amber-800 dark:text-amber-300/80">Anki desktop is connected: <strong>Push to Anki</strong> below imports and reschedules these in one go. Or, if you imported by hand:</p>
       <form method="POST" action="/deck/review-soon/reschedule" class="flex flex-col gap-2"
         onsubmit="return confirm('Reschedule the flagged cards in Anki now? Make sure you have imported the latest export first.')">
         <select name="days" class="px-3 py-2 border border-amber-300 dark:border-amber-800 bg-white dark:bg-gray-800 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 outline-none">
@@ -93,83 +94,191 @@
 {% endif %}
 
 {% if anki_available %}
-<div class="mb-8 p-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-sm"
-  x-data="staleNotes()" x-init="load()">
-  <div class="flex items-center justify-between gap-4">
-    <p class="text-gray-600 dark:text-gray-300 flex items-center gap-2">
-      <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-      Anki desktop connected.
-      <span x-show="loading">Checking for notes without a matching person&hellip;</span>
-      <span x-show="!loading && !error && stale.length === 0" x-cloak>Every note in the deck matches a person in the app.</span>
+<div class="mb-8 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-sm"
+  x-data="ankiPanel()" x-init="load()">
+  <!-- header row -->
+  <div class="p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+    <div class="flex items-center gap-2 text-gray-600 dark:text-gray-300 min-w-0">
+      <span class="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0"></span>
+      <span class="font-medium text-gray-800 dark:text-gray-100">Anki desktop connected.</span>
+      <span x-show="loading">Reading the deck&hellip;</span>
+      <span x-show="!loading && !error && s" x-cloak class="truncate">
+        <span x-text="s && s.deck_notes"></span> notes in Anki<template x-if="s && s.new_people.length"><span>, <span x-text="s.new_people.length"></span> new here not yet pushed</span></template><template x-if="s && s.flagged"><span>, <span x-text="s.flagged"></span> flagged for early review</span></template>.
+      </span>
       <span x-show="error" x-cloak class="text-red-600 dark:text-red-400" x-text="error"></span>
-    </p>
-    <button type="button" @click="load()" :disabled="loading" class="text-xs text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 disabled:opacity-50">Re-check</button>
+      <button type="button" @click="load()" :disabled="loading" class="text-xs text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-50 ml-1">Re-check</button>
+    </div>
+    <form method="POST" action="/deck/anki/push" class="flex items-center gap-2 flex-shrink-0"
+      onsubmit="this.querySelector('button').disabled = true; this.querySelector('button span').textContent = 'Pushing…'; return true;">
+      <select name="days" title="When flagged cards should come up" class="px-2 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 outline-none">
+        <option value="0">Flagged: due today</option>
+        <option value="1">Flagged: due tomorrow</option>
+        <option value="0-3">Flagged: within 3 days</option>
+        <option value="forget">Flagged: reset to new</option>
+      </select>
+      <button type="submit" class="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors whitespace-nowrap disabled:opacity-60">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+        <span>Push to Anki</span>
+      </button>
+    </form>
   </div>
 
-  <div x-show="stale.length > 0" x-cloak class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-800">
-    <p class="font-medium text-gray-800 dark:text-gray-100">
-      <span x-text="stale.length"></span> note<span x-show="stale.length !== 1">s</span> in Anki with no matching person
-      <span class="font-normal text-gray-500 dark:text-gray-400">(importing never deletes, so these are usually people you removed here)</span>
-    </p>
-    <ul class="mt-2 space-y-1.5">
-      <template x-for="n in stale" :key="n.note_id">
-        <li class="flex items-center gap-3">
-          <input type="checkbox" :value="n.note_id" x-model="selected" class="rounded border-gray-300 dark:border-gray-600 text-brand-600 focus:ring-brand-500 bg-white dark:bg-gray-700">
-          <span class="font-medium" x-text="n.name"></span>
-          <span class="text-gray-500 dark:text-gray-400 truncate" x-text="n.context"></span>
-        </li>
-      </template>
-    </ul>
-    <div class="mt-3 flex flex-wrap items-center gap-2">
-      <button type="button" @click="act('suspend')" :disabled="busy || selected.length === 0"
-        class="px-3 py-1.5 text-xs font-medium bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50">
-        Suspend in Anki
-      </button>
-      <button type="button" @click="act('delete')" :disabled="busy || selected.length === 0"
-        class="px-3 py-1.5 text-xs font-medium bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50">
-        Delete from Anki
-      </button>
-      <button type="button" @click="selected = selected.length === stale.length ? [] : stale.map(n => String(n.note_id))"
-        class="px-2 py-1.5 text-xs text-gray-500 hover:text-gray-800 dark:hover:text-gray-200">
-        <span x-text="selected.length === stale.length ? 'Select none' : 'Select all'"></span>
-      </button>
-      <span x-show="message" x-cloak class="text-xs text-gray-500 dark:text-gray-400" x-text="message"></span>
+  <template x-if="s">
+  <div>
+    <!-- people to trash -->
+    <div x-show="s.to_trash.length" class="px-4 py-3 border-t border-gray-200 dark:border-gray-800">
+      <p class="font-medium text-gray-800 dark:text-gray-100">
+        <span x-text="s.to_trash.length"></span> <span x-text="s.to_trash.length === 1 ? 'person is' : 'people are'"></span> suspended or gone in Anki
+        <span class="font-normal text-gray-500 dark:text-gray-400">but still active here</span>
+      </p>
+      <ul class="mt-2 space-y-1.5">
+        <template x-for="t in s.to_trash" :key="t.person_id">
+          <li class="flex items-center gap-3">
+            <input type="checkbox" :value="t.person_id" x-model="sel.trash" class="rounded border-gray-300 dark:border-gray-600 text-brand-600 focus:ring-brand-500 bg-white dark:bg-gray-700">
+            <a :href="'/edit/' + t.person_id" class="font-medium hover:underline" x-text="t.name"></a>
+            <span class="text-gray-500 dark:text-gray-400 truncate" x-text="t.context"></span>
+            <span class="text-[10px] uppercase tracking-wide text-gray-400 flex-shrink-0" x-text="t.reason"></span>
+          </li>
+        </template>
+      </ul>
+      <div class="mt-2.5 flex items-center gap-2">
+        <button type="button" @click="post('/deck/anki/trash', {person_ids: sel.trash}, 'Moved {n} to the trash.')" :disabled="busy || !sel.trash.length" class="nf-btn">Move to trash</button>
+        <button type="button" @click="toggleAll('trash', s.to_trash.map(t => t.person_id))" class="nf-link" x-text="sel.trash.length === s.to_trash.length ? 'Select none' : 'Select all'"></button>
+      </div>
+    </div>
+
+    <!-- edits made in Anki -->
+    <div x-show="s.edits.length" class="px-4 py-3 border-t border-gray-200 dark:border-gray-800">
+      <p class="font-medium text-gray-800 dark:text-gray-100">
+        <span x-text="s.edits.length"></span> field<span x-show="s.edits.length !== 1">s</span> edited in Anki more recently than here
+        <span class="font-normal text-gray-500 dark:text-gray-400">(pushing without applying would overwrite them)</span>
+      </p>
+      <ul class="mt-2 space-y-1.5">
+        <template x-for="e in s.edits" :key="e.person_id + e.field">
+          <li class="flex items-start gap-3">
+            <input type="checkbox" :value="e.person_id + '|' + e.field" x-model="sel.edits" class="mt-0.5 rounded border-gray-300 dark:border-gray-600 text-brand-600 focus:ring-brand-500 bg-white dark:bg-gray-700">
+            <div class="min-w-0">
+              <a :href="'/edit/' + e.person_id" class="font-medium hover:underline" x-text="e.name"></a>
+              <span class="text-gray-400 text-xs" x-text="'· ' + e.field"></span>
+              <div class="text-xs mt-0.5"><span class="text-gray-400">Anki:</span> <span class="text-gray-800 dark:text-gray-100" x-text="e.anki || '(empty)'"></span></div>
+              <div class="text-xs"><span class="text-gray-400">Here:</span> <span class="text-gray-500 line-through" x-text="e.app || '(empty)'"></span></div>
+            </div>
+          </li>
+        </template>
+      </ul>
+      <div class="mt-2.5 flex items-center gap-2">
+        <button type="button" @click="post('/deck/anki/pull', {edits: sel.edits.map(k => ({person_id: k.split('|')[0], field: k.split('|')[1]}))}, 'Applied {n} from Anki.')" :disabled="busy || !sel.edits.length" class="nf-btn">Apply to app</button>
+        <button type="button" @click="toggleAll('edits', s.edits.map(e => e.person_id + '|' + e.field))" class="nf-link" x-text="sel.edits.length === s.edits.length ? 'Select none' : 'Select all'"></button>
+      </div>
+    </div>
+
+    <!-- stale notes -->
+    <div x-show="s.stale.length" class="px-4 py-3 border-t border-gray-200 dark:border-gray-800">
+      <p class="font-medium text-gray-800 dark:text-gray-100">
+        <span x-text="s.stale.length"></span> note<span x-show="s.stale.length !== 1">s</span> in Anki with no active person here
+        <span class="font-normal text-gray-500 dark:text-gray-400">(Push suspends the ones for trashed people automatically)</span>
+      </p>
+      <ul class="mt-2 space-y-1.5">
+        <template x-for="n in s.stale" :key="n.note_id">
+          <li class="flex items-center gap-3">
+            <input type="checkbox" :value="String(n.note_id)" x-model="sel.stale" class="rounded border-gray-300 dark:border-gray-600 text-brand-600 focus:ring-brand-500 bg-white dark:bg-gray-700">
+            <span class="font-medium" x-text="n.name"></span>
+            <span class="text-gray-500 dark:text-gray-400 truncate" x-text="n.context"></span>
+            <span x-show="n.in_trash" class="text-[10px] uppercase tracking-wide text-gray-400 flex-shrink-0">in trash here</span>
+          </li>
+        </template>
+      </ul>
+      <div class="mt-2.5 flex items-center gap-2">
+        <button type="button" @click="post('/deck/anki/stale/suspend', {note_ids: sel.stale.map(Number)}, 'Suspended {n} in Anki.')" :disabled="busy || !sel.stale.length" class="nf-btn">Suspend in Anki</button>
+        <button type="button" @click="toggleAll('stale', s.stale.map(n => String(n.note_id)))" class="nf-link" x-text="sel.stale.length === s.stale.length ? 'Select none' : 'Select all'"></button>
+        <button type="button" @click="if (confirm('Delete ' + sel.stale.length + ' note(s) from Anki? Their review history goes too; suspending keeps it.')) post('/deck/anki/stale/delete', {note_ids: sel.stale.map(Number)}, 'Deleted {n} from Anki.')" :disabled="busy || !sel.stale.length" class="nf-link text-red-500 hover:text-red-700 ml-auto">Delete instead</button>
+      </div>
+    </div>
+
+    <!-- stats / ordering -->
+    <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-800 flex flex-wrap items-center gap-3">
+      <label class="text-gray-600 dark:text-gray-300">Order people by</label>
+      <select x-model="order" @change="sortGrid()" class="px-2 py-1.5 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 outline-none">
+        <option value="default">Newest added</option>
+        <option value="lapses">Most forgotten (lapses)</option>
+        <option value="interval">Shortest interval</option>
+        <option value="unseen">Never reviewed first</option>
+        <option value="reps">Fewest reviews</option>
+      </select>
+      <span class="text-xs text-gray-400">Badges on each card show lapses and the shortest current interval.</span>
+      <span x-show="message" class="text-xs text-emerald-700 dark:text-emerald-400 ml-auto" x-text="message"></span>
     </div>
   </div>
+  </template>
 </div>
 
 <script>
-function staleNotes() {
+function ankiPanel() {
   return {
-    stale: [], selected: [], loading: false, busy: false, error: '', message: '',
+    s: null, loading: false, busy: false, error: '', message: '', order: 'default',
+    sel: { trash: [], edits: [], stale: [] },
     async load() {
-      this.loading = true; this.error = ''; this.message = '';
+      this.loading = true; this.error = '';
       try {
-        const r = await fetch('/deck/anki/stale');
+        const r = await fetch('/deck/anki/status');
         const d = await r.json();
         if (!r.ok) throw new Error(d.error || r.statusText);
-        this.stale = d.stale;
-        this.selected = this.selected.filter(id => this.stale.some(n => String(n.note_id) === id));
-      } catch (e) { this.error = 'Could not check Anki: ' + e.message; }
+        this.s = d;
+        this.sel = { trash: [], edits: [], stale: [] };
+        this.annotate();
+        this.sortGrid();
+      } catch (e) { this.error = 'Could not read Anki: ' + e.message; }
       finally { this.loading = false; }
     },
-    async act(action) {
-      const n = this.selected.length;
-      const verb = action === 'delete' ? 'Delete' : 'Suspend';
-      if (!confirm(`${verb} ${n} note${n === 1 ? '' : 's'} in Anki?${action === 'delete' ? ' This also removes their review history.' : ''}`)) return;
-      this.busy = true; this.message = '';
+    toggleAll(key, all) { this.sel[key] = this.sel[key].length === all.length ? [] : all; },
+    async post(url, body, doneMsg) {
+      this.busy = true; this.message = ''; this.error = '';
       try {
-        const r = await fetch('/deck/anki/stale/' + action, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ note_ids: this.selected.map(Number) })
-        });
+        const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         const d = await r.json();
         if (!r.ok) throw new Error(d.error || r.statusText);
-        this.message = `${verb}${action === 'delete' ? 'd' : 'ed'} ${d.done} note${d.done === 1 ? '' : 's'}. Sync Anki to push the change to other devices.`;
-        this.selected = [];
+        this.message = doneMsg.replace('{n}', d.done + (d.done === 1 ? ' item' : ' items'));
+        if (url.includes('/anki/trash') || url.includes('/anki/pull')) { window.location.reload(); return; }
         await this.load();
       } catch (e) { this.error = 'Anki action failed: ' + e.message; }
       finally { this.busy = false; }
+    },
+    annotate() {
+      document.querySelectorAll('[data-person-id]').forEach(card => {
+        const st = this.s.stats[card.dataset.personId];
+        const slot = card.querySelector('.nf-stat');
+        if (!slot) return;
+        const base = 'nf-stat inline-block px-1.5 py-0.5 text-[10px] font-medium rounded ';
+        if (!st) { slot.textContent = 'not in Anki'; slot.className = base + 'bg-gray-100 dark:bg-gray-800 text-gray-400'; return; }
+        let text, cls;
+        if (st.suspended) { text = 'suspended'; cls = 'bg-gray-200 dark:bg-gray-700 text-gray-500'; }
+        else if (st.never_seen) { text = 'unseen'; cls = 'bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300'; }
+        else {
+          text = (st.lapses ? st.lapses + ' lapse' + (st.lapses === 1 ? '' : 's') : 'no lapses') + (st.interval !== null ? ' · ' + st.interval + 'd' : '');
+          cls = st.lapses >= 4 ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300'
+              : st.lapses >= 2 ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300'
+              : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400';
+        }
+        slot.textContent = text;
+        slot.className = base + cls;
+      });
+    },
+    sortGrid() {
+      const grid = document.getElementById('peopleGrid');
+      if (!grid || !this.s) return;
+      const cards = Array.from(grid.children);
+      const st = id => this.s.stats[id];
+      const big = 1e9;
+      const keyFns = {
+        default: c => Number(c.dataset.index),
+        lapses: c => { const x = st(c.dataset.personId); return x ? -x.lapses : big; },
+        interval: c => { const x = st(c.dataset.personId); return x && x.interval !== null ? x.interval : big; },
+        unseen: c => { const x = st(c.dataset.personId); return x && x.never_seen ? 0 : 1; },
+        reps: c => { const x = st(c.dataset.personId); return x ? x.reps : big; },
+      };
+      const f = keyFns[this.order] || keyFns.default;
+      cards.sort((a, b) => f(a) - f(b) || Number(a.dataset.index) - Number(b.dataset.index));
+      cards.forEach(c => grid.appendChild(c));
     }
   };
 }
@@ -177,9 +286,9 @@ function staleNotes() {
 {% endif %}
 
 {% if people %}
-<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+<div id="peopleGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
   {% for person in people %}
-  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden hover:shadow-md dark:hover:shadow-gray-900/50 transition-shadow group">
+  <div data-person-id="{{ person.id }}" data-index="{{ loop.index0 }}" class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden hover:shadow-md dark:hover:shadow-gray-900/50 transition-shadow group">
     <a href="/edit/{{ person.id }}" class="block">
       <div class="aspect-square bg-gray-100 dark:bg-gray-800 relative overflow-hidden">
         {% if person.face_filename %}
@@ -214,6 +323,7 @@ function staleNotes() {
       {% if person.review_soon_list() %}
         <span class="inline-block px-1.5 py-0.5 bg-amber-500 text-white text-[10px] font-medium rounded" title="Flagged for early review: {{ person.review_soon_labels()|join(', ') }}">&#8635; soon</span>
       {% endif %}
+      {% if anki_available %}<span class="nf-stat"></span>{% endif %}
     </div>
   </div>
   {% endfor %}

@@ -35,12 +35,16 @@ class Person(db.Model):  # type: ignore[name-defined]
     # restored or permanently deleted from the trash page.
     deleted_at = db.Column(db.DateTime, nullable=True)
 
+    # Last time this person's content was pushed to Anki via AnkiConnect. Lets
+    # us tell "new, not yet in Anki" from "was in Anki, since deleted there".
+    anki_synced_at = db.Column(db.DateTime, nullable=True)
+
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = db.Column(
-        db.DateTime,
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
-    )
+    # When the person's content (name, photo, context, card toggles) last
+    # changed. Set explicitly via touch(); deliberately not onupdate, so that
+    # bookkeeping writes (review flags, trash, Anki sync time) leave it alone.
+    # anki_sync compares it against Anki's note modification time.
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     @classmethod
     def active(cls):
@@ -52,6 +56,9 @@ class Person(db.Model):  # type: ignore[name-defined]
         return cls.query.filter(cls.deleted_at.isnot(None)).order_by(
             cls.deleted_at.desc()
         )
+
+    def touch(self) -> None:
+        self.updated_at = datetime.now(timezone.utc)
 
     def has_context(self) -> bool:
         return bool(self.context and self.context.strip())

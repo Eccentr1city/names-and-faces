@@ -73,7 +73,17 @@ On a person's edit page, tick **Review changed cards soon** before saving. The a
    - Otherwise copy the search string from the banner into Anki's browser (desktop or AnkiMobile), select all, and use **Set Due Date**. The search matches only the affected card types, not the person's other cards.
 3. **Clear flags** (done automatically after an AnkiConnect reschedule). The tags disappear from Anki on the next export + import.
 
-When AnkiConnect is reachable, the home page also lists any notes in the Anki deck that no longer match a person in the app (importing never deletes notes), with buttons to suspend or delete them in Anki. Matching is by name or photo file, so a rename you haven't imported yet is not reported.
+## Anki desktop integration (AnkiConnect)
+
+With Anki desktop open on the same machine and the [AnkiConnect](https://ankiweb.net/shared/info/2055492159) add-on installed, an "Anki desktop connected" panel appears on the home page. Set `ANKICONNECT_URL` in `.env` if the add-on is not on the default `http://127.0.0.1:8765`.
+
+- **Push to Anki** replaces export/download/import: it builds the deck, imports it, brings forward the cards of anyone flagged for early review (today / tomorrow / within 3 days / reset), suspends the notes of people in the trash, and syncs with AnkiWeb. Then sync on your phone.
+- **Suspended or gone in Anki**: people you suspended or deleted on the Anki side but who are still active here, with a one-click move to the trash.
+- **Edited in Anki**: name or context fields changed in Anki more recently than in the app (for example fixed on your phone mid-review). Apply them here, otherwise the next push overwrites them.
+- **Notes with no active person**: notes left in Anki for people removed here. Suspend is the default action (keeps review history); delete is available too.
+- **Order people by** lapses, shortest interval, never reviewed, or fewest reviews, with a badge on each card showing lapses and current interval.
+
+Notes are matched to people by exact name, falling back to the photo filename, so a rename or photo swap you have not pushed yet still matches.
 
 ## Trash
 

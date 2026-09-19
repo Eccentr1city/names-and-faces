@@ -176,7 +176,7 @@
     <div x-show="s.stale.length" class="px-4 py-3 border-t border-gray-200 dark:border-gray-800">
       <p class="font-medium text-gray-800 dark:text-gray-100">
         <span x-text="s.stale.length"></span> note<span x-show="s.stale.length !== 1">s</span> in Anki with no active person here
-        <span class="font-normal text-gray-500 dark:text-gray-400">(Push suspends the ones for trashed people automatically)</span>
+        <span class="font-normal text-gray-500 dark:text-gray-400">(Push suspends the ones for trashed people automatically<template x-if="s.stale_suspended"><span>; <span x-text="s.stale_suspended"></span> already suspended and hidden</span></template>)</span>
       </p>
       <ul class="mt-2 space-y-1.5">
         <template x-for="n in s.stale" :key="n.note_id">

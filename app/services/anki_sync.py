@@ -126,16 +126,24 @@ def status() -> dict:
     trashed_matched, orphans = match(trashed, unmatched)
     trashed_note_ids = {n["note_id"] for n in trashed_matched.values()}
 
-    stale = [
-        {
-            "note_id": n["note_id"],
-            "name": n["name"],
-            "context": n["context"],
-            "in_trash": n["note_id"] in trashed_note_ids,
-        }
-        for n in unmatched
-        if n["note_id"] in trashed_note_ids or n in orphans
-    ]
+    # Orphaned notes still needing attention. Ones already fully suspended in
+    # Anki have been dealt with and are only counted.
+    stale: list[dict] = []
+    stale_suspended = 0
+    for n in unmatched:
+        if n["note_id"] not in trashed_note_ids and n not in orphans:
+            continue
+        if n["cards"] and all(c["queue"] == _SUSPENDED for c in n["cards"]):
+            stale_suspended += 1
+            continue
+        stale.append(
+            {
+                "note_id": n["note_id"],
+                "name": n["name"],
+                "context": n["context"],
+                "in_trash": n["note_id"] in trashed_note_ids,
+            }
+        )
 
     to_trash: list[dict] = []
     edits: list[dict] = []
@@ -192,6 +200,7 @@ def status() -> dict:
     return {
         "deck_notes": len(notes),
         "stale": stale,
+        "stale_suspended": stale_suspended,
         "to_trash": to_trash,
         "edits": edits,
         "stats": stats,

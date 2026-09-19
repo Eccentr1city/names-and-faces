@@ -33,9 +33,15 @@ def _invoke(action: str, **params: object) -> object:
 
 
 def is_available() -> bool:
+    """True only if something that identifies itself as AnkiConnect answers.
+
+    A plain GET to AnkiConnect returns a short "AnkiConnect v.N" page. Checking
+    for that string avoids false positives when another app holds the port.
+    """
     try:
-        requests.get(URL, timeout=1).raise_for_status()
-        return True
+        resp = requests.get(URL, timeout=1)
+        resp.raise_for_status()
+        return "AnkiConnect" in resp.text[:200]
     except requests.RequestException:
         return False
 

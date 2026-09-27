@@ -1,0 +1,10 @@
+services:
+  names-and-faces:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5050:5050"
+    volumes:
+      - /srv/data/names-and-faces:/data
+    # LINKEDIN_LI_AT, ANTHROPIC_API_KEY, ANKICONNECT_URL, ANKICONNECT_API_KEY
+    env_file: /srv/secrets/names-and-faces.env

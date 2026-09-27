@@ -1,0 +1,8 @@
+.git
+.venv
+.ruff_cache
+.env
+**/__pycache__
+**/.DS_Store
+*.db
+*.apkg

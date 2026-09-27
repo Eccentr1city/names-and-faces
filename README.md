@@ -22,6 +22,18 @@ The rest of this document describes how the pieces fit together and how to repro
 - **Deck**: one Anki deck called `Names and Faces`, one note per person. Note GUIDs derive from the person's database id, so re-importing updates content and never duplicates or resets scheduling.
 - **AnkiConnect** (optional but recommended): when Anki desktop is open on the same Mac, the app pushes the deck, reschedules flagged cards, suspends notes of trashed people, pulls edits made in Anki, and shows review stats. Without it, you export an `.apkg` and import by hand.
 
+## Current hosting
+
+Runs on the home server `perihelion` in Docker: https://perihelion.tail18d97e.ts.net:5050/ (tailnet only).
+Data (SQLite + photos) lives in `/srv/data/names-and-faces`, snapshotted hourly (a pre-backup hook takes a consistent
+SQLite copy). Secrets are in `/srv/secrets/names-and-faces.env` on perihelion (source of truth: 1Password), not in the repo.
+AnkiConnect is reached on the Mac over Tailscale (`tailscale serve --https=8766` on the Mac, with an `apiKey` set in the
+add-on's config), so Anki features work whenever the Mac is awake with Anki open.
+
+Deploy: `rsync -a --delete --exclude-from=.dockerignore ./ perihelion:/srv/apps/names-and-faces/ && ssh perihelion 'cd /srv/apps/names-and-faces && docker compose up -d --build'`.
+Logs: `ssh perihelion 'docker logs names-and-faces-names-and-faces-1'`. The Mac LaunchAgent (`com.namesandfaces.server`) is disabled;
+the macOS sections below describe how it ran before and still work for local use.
+
 ## Quick start (any OS)
 
 Requires [uv](https://docs.astral.sh/uv/) and Python 3.13+ (uv will fetch Python if needed).

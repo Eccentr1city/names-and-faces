@@ -2,7 +2,8 @@
 
 Optional: if Anki desktop is running on this machine with AnkiConnect installed,
 the app can push decks, reschedule cards, and reconcile notes directly. Set
-ANKICONNECT_URL to override the default endpoint. Higher-level logic lives in
+ANKICONNECT_URL to override the default endpoint, and ANKICONNECT_API_KEY if the
+add-on has an apiKey configured (needed when reaching it over the network). Higher-level logic lives in
 anki_sync.py; this module is a thin wrapper over individual actions.
 """
 
@@ -13,6 +14,7 @@ import re
 import requests
 
 URL = os.environ.get("ANKICONNECT_URL", "http://127.0.0.1:8765")
+API_KEY = os.environ.get("ANKICONNECT_API_KEY")
 DECK_NAME = "Names and Faces"
 
 _IMG_SRC_RE = re.compile(r'src="([^"]+)"')
@@ -24,10 +26,13 @@ class AnkiConnectError(Exception):
 
 
 def _invoke(action: str, timeout: int = 30, **params: object) -> object:
+    payload = {"action": action, "version": 6, "params": params}
+    if API_KEY:
+        payload["key"] = API_KEY
     try:
         resp = requests.post(
             URL,
-            json={"action": action, "version": 6, "params": params},
+            json=payload,
             timeout=timeout,
         )
         resp.raise_for_status()

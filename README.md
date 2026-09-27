@@ -94,7 +94,7 @@ All optional. Loaded by `run.py` via `python-dotenv` at process start, so restar
 |---|---|---|
 | `NAMES_AND_FACES_PORT` | `5050` | Port for the Flask server and the Tailscale serve entry. |
 | `NAMES_AND_FACES_DATA_DIR` | `~/.names-and-faces` | Where the database and photos live. Set to an iCloud path for automatic backup, e.g. `"$HOME/Library/Mobile Documents/com~apple~CloudDocs/names-and-faces-data"`. |
-| `LINKEDIN_LI_AT` | unset | LinkedIn `li_at` session cookie; unlocks profiles behind the login wall. Get it from Chrome DevTools → Application → Cookies → `linkedin.com`, or `eval $(bash scripts/get-linkedin-cookie.sh)` on macOS. Expires every few months. |
+| `LINKEDIN_LI_AT` | unset | LinkedIn `li_at` session cookie; unlocks profiles behind the login wall. Get it from Chrome DevTools → Application → Cookies → `linkedin.com`, or `eval $(bash scripts/get-linkedin-cookie.sh)` on macOS. Expires every few months; to refresh it on perihelion run `bash scripts/push-linkedin-cookie.sh` on the Mac. |
 | `ANTHROPIC_API_KEY` | unset | Lets the scraper summarise a bio into a one-line context and extract profile info from arbitrary personal sites (`app/services/llm.py`). |
 | `ANKICONNECT_URL` | `http://127.0.0.1:8765` | Where the AnkiConnect add-on listens. Change if you moved AnkiConnect off its default port. |
 

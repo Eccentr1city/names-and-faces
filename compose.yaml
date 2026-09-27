@@ -2,6 +2,8 @@ services:
   names-and-faces:
     build: .
     restart: unless-stopped
+    environment:
+      - TZ=America/Los_Angeles   # containers default to UTC
     ports:
       - "127.0.0.1:5050:5050"
     volumes:

@@ -7,6 +7,7 @@ add-on has an apiKey configured (needed when reaching it over the network). High
 anki_sync.py; this module is a thin wrapper over individual actions.
 """
 
+import base64
 import html
 import os
 import re
@@ -16,6 +17,8 @@ import requests
 URL = os.environ.get("ANKICONNECT_URL", "http://127.0.0.1:8765")
 API_KEY = os.environ.get("ANKICONNECT_API_KEY")
 DECK_NAME = "Names and Faces"
+# Leading underscore: Anki's "Check Media" leaves such files alone while they exist.
+_UPLOAD_NAME = "_names_and_faces_import.apkg"
 
 _IMG_SRC_RE = re.compile(r'src="([^"]+)"')
 _TAG_RE = re.compile(r"<[^>]+>")
@@ -98,8 +101,19 @@ def cards_info(card_ids: list[int]) -> list[dict]:
 
 
 def import_package(path: str) -> bool:
-    """Import an .apkg from a path readable by Anki (same machine)."""
-    return bool(_invoke("importPackage", timeout=300, path=path))
+    """Import a local .apkg into Anki, which may be on another machine.
+
+    AnkiConnect's importPackage opens a path on Anki's machine, so upload the
+    file into Anki's media folder first, import it by absolute path, and remove it.
+    """
+    with open(path, "rb") as f:
+        data = base64.b64encode(f.read()).decode("ascii")
+    stored = _invoke("storeMediaFile", timeout=300, filename=_UPLOAD_NAME, data=data) or _UPLOAD_NAME
+    try:
+        media_dir = _invoke("getMediaDirPath")
+        return bool(_invoke("importPackage", timeout=300, path=f"{media_dir}/{stored}"))
+    finally:
+        _invoke("deleteMediaFile", filename=stored)
 
 
 def sync() -> None:
